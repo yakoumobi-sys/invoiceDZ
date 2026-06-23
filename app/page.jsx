@@ -1,5 +1,5 @@
-"use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+
 // ─── DESIGN TOKENS ────────────────────────────────────────────────────
 const T = {
   white: "#FFFFFF",
@@ -63,7 +63,7 @@ const newDoc = (type = "FACTURE") => ({
   lignes: [emptyLigne()],
   notes: "", conditionsPaiement: "Virement / BaridiMob",
   remiseGlobale: 0, tvaActive: true,
-  entreprise: { nom: "", adresse: "", telephone: "", email: "", nif: "" },
+  entreprise: { nom: "", adresse: "", ville: "", telephone: "", email: "", nif: "", rc: "", ai: "", idFiscal: "", code: "" },
 });
 
 const calcLigne = l => { const ht = l.quantite * l.prixUnitaire * (1 - l.remise/100); return { ht, tva: ht*(l.tva/100), ttc: ht*(1+l.tva/100) }; };
@@ -518,10 +518,15 @@ function DocEditorFull({ doc, onChange }) {
         <Card>
           <div style={{fontSize:11,fontWeight:700,color:T.accent,letterSpacing:1.5,textTransform:"uppercase",marginBottom:20}}>Votre entreprise</div>
           <div style={{display:"flex",flexDirection:"column",gap:12}}>
-            <div><Label>Nom</Label><Input value={doc.entreprise?.nom||""} onChange={v=>up("entreprise.nom",v)} placeholder="Votre entreprise" /></div>
-            <div><Label>Adresse</Label><Input value={doc.entreprise?.adresse||""} onChange={v=>up("entreprise.adresse",v)} placeholder="Adresse" /></div>
+            <div><Label>Nom</Label><Input value={doc.entreprise?.nom||""} onChange={v=>up("entreprise.nom",v)} placeholder="YAKOUBI MOHAMED" /></div>
+            <div><Label>Adresse</Label><Input value={doc.entreprise?.adresse||""} onChange={v=>up("entreprise.adresse",v)} placeholder="Clos de la Grotte, Ann Benian, n° 137" /></div>
+            <div><Label>Ville</Label><Input value={doc.entreprise?.ville||""} onChange={v=>up("entreprise.ville",v)} placeholder="Alger" /></div>
             <div><Label>Téléphone</Label><Input value={doc.entreprise?.telephone||""} onChange={v=>up("entreprise.telephone",v)} placeholder="05XX XX XX XX" /></div>
             <div><Label>Email</Label><Input value={doc.entreprise?.email||""} onChange={v=>up("entreprise.email",v)} placeholder="email@entreprise.dz" /></div>
+            <div><Label>Code</Label><Input value={doc.entreprise?.code||""} onChange={v=>up("entreprise.code",v)} placeholder="20-036" /></div>
+            <div><Label>Reg. Com.</Label><Input value={doc.entreprise?.rc||""} onChange={v=>up("entreprise.rc",v)} placeholder="23A5058012" /></div>
+            <div><Label>Art. d'Imp.</Label><Input value={doc.entreprise?.ai||""} onChange={v=>up("entreprise.ai",v)} placeholder="16570583839" /></div>
+            <div><Label>Id. Fiscal</Label><Input value={doc.entreprise?.idFiscal||""} onChange={v=>up("entreprise.idFiscal",v)} placeholder="19716320010218961600" /></div>
             <div><Label>NIF</Label><Input value={doc.entreprise?.nif||""} onChange={v=>up("entreprise.nif",v)} placeholder="000000000000000" /></div>
           </div>
         </Card>
@@ -624,8 +629,13 @@ function DocPreviewFull({ doc }) {
           <div style={{fontFamily:"system-ui",fontWeight:900,fontSize:20,letterSpacing:-1}}>{ent.nom||"Votre Entreprise"}</div>
           <div style={{marginTop:10,fontSize:12,color:"#555",lineHeight:1.9,fontFamily:"system-ui"}}>
             {ent.adresse&&<div>{ent.adresse}</div>}
+            {ent.ville&&<div>{ent.ville}</div>}
             {ent.telephone&&<div>{ent.telephone}</div>}
             {ent.email&&<div>{ent.email}</div>}
+            {ent.code&&<div>Code : {ent.code}</div>}
+            {ent.rc&&<div>Reg. Com. n° {ent.rc}</div>}
+            {ent.ai&&<div>Art. d'Imp. n° {ent.ai}</div>}
+            {ent.idFiscal&&<div>Id. Fiscal n° {ent.idFiscal}</div>}
             {ent.nif&&<div>NIF: {ent.nif}</div>}
           </div>
         </div>
