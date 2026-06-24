@@ -1,5 +1,5 @@
 "use client";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 
 const T = {
   white:"#FFFFFF",bg:"#F7F7F5",ink:"#111110",inkMid:"#444440",
@@ -424,9 +424,29 @@ function Step3({doc,onBack,onSave}){
   const handlePrint=()=>{
     const content=printRef.current.innerHTML;
     const win=window.open("","_blank");
-    win.document.write("<!DOCTYPE html><html><head><title>"+doc.numero+"</title><style>body{margin:0;padding:0;font-family:Georgia,serif}@media print{body{margin:0}}</style></head><body>"+content+"</body></html>");
-    win.document.close();win.focus();
-    setTimeout(()=>{win.print();win.close();},500);
+    win.document.write(`<!DOCTYPE html>
+<html><head>
+<meta charset="utf-8"/>
+<title>${doc.numero}</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:Georgia,serif;color:#111;background:#fff;padding:0;margin:0}
+  @media print{
+    html,body{width:210mm;margin:0;padding:0}
+    body{padding:16mm 16mm 20mm 16mm}
+    @page{size:A4;margin:0}
+  }
+  @media screen{body{padding:40px;max-width:800px;margin:0 auto}}
+  table{width:100%;border-collapse:collapse}
+  th,td{padding:9px 10px}
+  img{max-width:160px;height:auto}
+</style>
+</head><body>${content}</body></html>`);
+    win.document.close();
+    win.focus();
+    setTimeout(()=>{
+      win.print();
+    },800);
   };
   return <div style={{maxWidth:880,margin:"0 auto",padding:"32px 24px"}}>
     <div style={{marginBottom:24,display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:12}}>
@@ -618,6 +638,24 @@ export default function Root(){
   const [wDoc,setWDoc]=useState(null);
   const [wStep,setWStep]=useState(1);
   const [vDoc,setVDoc]=useState(null);
+
+  // Persist session
+  useEffect(()=>{
+    try{
+      const u=localStorage.getItem("idz_user");
+      const d=localStorage.getItem("idz_docs");
+      if(u){setUser(JSON.parse(u));setPage("dashboard");}
+      if(d){setDocs(JSON.parse(d));}
+    }catch(e){}
+  },[]);
+
+  useEffect(()=>{
+    if(user) try{localStorage.setItem("idz_user",JSON.stringify(user));}catch(e){}
+  },[user]);
+
+  useEffect(()=>{
+    try{localStorage.setItem("idz_docs",JSON.stringify(docs));}catch(e){}
+  },[docs]);
 
   const handleAuth=u=>{setUser(u);setPage("dashboard");};
   const startWizard=()=>{setWDoc(null);setWStep(1);setPage("wizard");};
