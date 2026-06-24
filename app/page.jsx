@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-
+"use client";
+import { useState } from "react";
 // ─── DESIGN TOKENS ────────────────────────────────────────────────────
 const T = {
   white: "#FFFFFF",
