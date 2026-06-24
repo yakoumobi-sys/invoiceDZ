@@ -1,553 +1,359 @@
 "use client";
-import { useState } from "react";
-// ─── DESIGN TOKENS ────────────────────────────────────────────────────
+import { useState, useRef } from "react";
+
 const T = {
-  white: "#FFFFFF",
-  bg: "#F8F8F6",
-  surface: "#FFFFFF",
-  ink: "#111110",
-  inkMid: "#444440",
-  inkLight: "#888884",
-  border: "#E4E4E0",
-  borderStrong: "#C8C8C4",
-  accent: "#1A6BFF",
-  accentHover: "#0050E0",
-  accentBg: "#EEF4FF",
-  success: "#16A34A",
-  successBg: "#F0FDF4",
-  warning: "#D97706",
-  warningBg: "#FFFBEB",
-  danger: "#DC2626",
-  dangerBg: "#FEF2F2",
-  purple: "#7C3AED",
+  white:"#FFFFFF",bg:"#F7F7F5",ink:"#111110",inkMid:"#444440",
+  inkLight:"#88887F",border:"#E4E4DF",accent:"#1A6BFF",
+  accentDark:"#0050E0",accentBg:"#EEF4FF",success:"#16A34A",
+  warning:"#D97706",danger:"#DC2626",purple:"#7C3AED",
 };
 
 const DOC_TYPES = {
-  FACTURE:      { label: "Facture",           prefix: "FAC", color: T.success,  icon: "🧾" },
-  PROFORMA:     { label: "Facture Proforma",  prefix: "PRO", color: T.accent,   icon: "📋" },
-  DEVIS:        { label: "Devis",             prefix: "DEV", color: T.purple,   icon: "📝" },
-  BON_COMMANDE: { label: "Bon de Commande",   prefix: "BC",  color: T.warning,  icon: "🛒" },
-  BON_LIVRAISON:{ label: "Bon de Livraison",  prefix: "BL",  color: T.inkMid,   icon: "🚚" },
+  FACTURE:{label:"Facture",prefix:"FAC",color:T.success,icon:"🧾",desc:"Demandez paiement pour vos services"},
+  PROFORMA:{label:"Facture Proforma",prefix:"PRO",color:T.accent,icon:"📋",desc:"Estimez avant de facturer officiellement"},
+  DEVIS:{label:"Devis",prefix:"DEV",color:T.purple,icon:"📝",desc:"Proposez un prix à votre client"},
+  BON_COMMANDE:{label:"Bon de Commande",prefix:"BC",color:T.warning,icon:"🛒",desc:"Confirmez une commande fournisseur"},
+  BON_LIVRAISON:{label:"Bon de Livraison",prefix:"BL",color:T.inkMid,icon:"🚚",desc:"Attestez la livraison de marchandises"},
 };
 
 const STATUTS = {
-  BROUILLON:  { label: "Brouillon",   color: T.inkLight },
-  ENVOYE:     { label: "Envoyé",      color: T.accent },
-  ACCEPTE:    { label: "Accepté",     color: T.success },
-  REFUSE:     { label: "Refusé",      color: T.danger },
-  PAYE:       { label: "Payé",        color: T.success },
-  PARTIEL:    { label: "Partiel",     color: T.warning },
-  EN_ATTENTE: { label: "En attente",  color: T.warning },
-  LIVRE:      { label: "Livré",       color: T.success },
+  BROUILLON:{label:"Brouillon",color:T.inkLight},ENVOYE:{label:"Envoyé",color:T.accent},
+  ACCEPTE:{label:"Accepté",color:T.success},REFUSE:{label:"Refusé",color:T.danger},
+  PAYE:{label:"Payé",color:T.success},PARTIEL:{label:"Partiel",color:T.warning},
+  EN_ATTENTE:{label:"En attente",color:T.warning},LIVRE:{label:"Livré",color:T.success},
 };
 
 const STATUTS_PAR_TYPE = {
-  FACTURE:       ["BROUILLON","ENVOYE","PAYE","PARTIEL"],
-  PROFORMA:      ["BROUILLON","ENVOYE","ACCEPTE","REFUSE"],
-  DEVIS:         ["BROUILLON","ENVOYE","ACCEPTE","REFUSE"],
-  BON_COMMANDE:  ["BROUILLON","ENVOYE","EN_ATTENTE","ACCEPTE"],
-  BON_LIVRAISON: ["BROUILLON","ENVOYE","LIVRE"],
+  FACTURE:["BROUILLON","ENVOYE","PAYE","PARTIEL"],
+  PROFORMA:["BROUILLON","ENVOYE","ACCEPTE","REFUSE"],
+  DEVIS:["BROUILLON","ENVOYE","ACCEPTE","REFUSE"],
+  BON_COMMANDE:["BROUILLON","ENVOYE","EN_ATTENTE","ACCEPTE"],
+  BON_LIVRAISON:["BROUILLON","ENVOYE","LIVRE"],
 };
 
-const COMPANY = { nom: "InvoiceDZ", site: "invoicedz.dz", email: "contact@invoicedz.dz" };
-
-// ─── HELPERS ──────────────────────────────────────────────────────────
-const emptyLigne = () => ({ id: Math.random(), designation: "", quantite: 1, unite: "Unité", prixUnitaire: 0, remise: 0, tva: 19 });
-const newDoc = (type = "FACTURE") => ({
-  id: Math.random(), type,
-  numero: `${DOC_TYPES[type].prefix}-${new Date().getFullYear()}-${String(Math.floor(Math.random()*900)+100)}`,
-  statut: "BROUILLON",
-  date: new Date().toISOString().split("T")[0],
-  dateEcheance: "",
-  client: { nom: "", adresse: "", ville: "", email: "", telephone: "", nif: "" },
-  lignes: [emptyLigne()],
-  notes: "", conditionsPaiement: "Virement / BaridiMob",
-  remiseGlobale: 0, tvaActive: true,
-  entreprise: { nom: "", adresse: "", ville: "", telephone: "", email: "", nif: "", rc: "", ai: "", idFiscal: "", code: "" },
+const emptyLigne = () => ({id:Math.random(),designation:"",quantite:1,unite:"Unité",prixUnitaire:0,remise:0,tva:19});
+const newDoc = (type,user) => ({
+  id:Math.random(),type,
+  numero:`${DOC_TYPES[type].prefix}-${new Date().getFullYear()}-${String(Math.floor(Math.random()*900)+100)}`,
+  statut:"BROUILLON",date:new Date().toISOString().split("T")[0],dateEcheance:"",
+  client:{nom:"",adresse:"",ville:"",email:"",telephone:"",nif:""},
+  lignes:[emptyLigne()],notes:"",conditionsPaiement:"Virement / BaridiMob",
+  remiseGlobale:0,tvaActive:true,
+  entreprise:user?{...user.entreprise}:{nom:"",adresse:"",ville:"",telephone:"",email:"",nif:"",rc:"",ai:"",idFiscal:"",code:""},
+  logo:user&&user.logo?user.logo:null,
+  createdAt:new Date().toISOString(),
 });
 
-const calcLigne = l => { const ht = l.quantite * l.prixUnitaire * (1 - l.remise/100); return { ht, tva: ht*(l.tva/100), ttc: ht*(1+l.tva/100) }; };
-const calcTotaux = (lignes, rem=0, tva=true) => {
-  const sous = lignes.reduce((s,l)=>s+calcLigne(l).ht,0);
-  const remAmt = sous*(rem/100);
-  const base = sous - remAmt;
-  const totalTVA = tva ? lignes.reduce((s,l)=>s+calcLigne(l).tva,0)*(1-rem/100) : 0;
-  return { sous, remAmt, base, totalTVA, ttc: base+totalTVA };
+const calcLigne = l => {const ht=l.quantite*l.prixUnitaire*(1-l.remise/100);return{ht,tva:ht*(l.tva/100),ttc:ht*(1+l.tva/100)};};
+const calcTotaux = (lignes,rem,tva) => {
+  const sous=lignes.reduce((s,l)=>s+calcLigne(l).ht,0);
+  const remAmt=sous*(rem/100);const base=sous-remAmt;
+  const totalTVA=tva?lignes.reduce((s,l)=>s+calcLigne(l).tva,0)*(1-rem/100):0;
+  return{sous,remAmt,base,totalTVA,ttc:base+totalTVA};
 };
 const fmtDA = n => new Intl.NumberFormat("fr-DZ",{minimumFractionDigits:2,maximumFractionDigits:2}).format(n)+" DA";
 
-// ─── UI PRIMITIVES ────────────────────────────────────────────────────
-const css = (obj) => Object.entries(obj).map(([k,v])=>`${k.replace(/([A-Z])/g,m=>'-'+m.toLowerCase())}:${v}`).join(';');
-
-function Btn({ children, onClick, variant="default", size="md", style={} }) {
-  const [hover, setHover] = useState(false);
-  const base = { display:"inline-flex", alignItems:"center", gap:6, border:"none", cursor:"pointer", borderRadius:8, fontWeight:600, fontFamily:"inherit", transition:"all .15s", whiteSpace:"nowrap" };
-  const sizes = { sm:{padding:"6px 14px",fontSize:12}, md:{padding:"10px 20px",fontSize:14}, lg:{padding:"14px 32px",fontSize:16} };
-  const variants = {
-    default: { background: hover?"#F0F0EE":T.white, color:T.ink, border:`1px solid ${T.border}`, boxShadow:"0 1px 2px rgba(0,0,0,.06)" },
-    primary: { background: hover?T.accentHover:T.accent, color:T.white, boxShadow:"0 2px 8px rgba(26,107,255,.25)" },
-    ghost:   { background:"transparent", color:T.inkLight, border:"none" },
-    danger:  { background: hover?"#FEE2E2":T.dangerBg, color:T.danger, border:`1px solid #FECACA` },
+function Btn({children,onClick,variant,size,style,disabled}){
+  variant=variant||"default";size=size||"md";style=style||{};disabled=disabled||false;
+  const [h,setH]=useState(false);
+  const base={display:"inline-flex",alignItems:"center",justifyContent:"center",gap:6,border:"none",cursor:disabled?"not-allowed":"pointer",borderRadius:8,fontWeight:600,fontFamily:"inherit",transition:"all .15s",whiteSpace:"nowrap",opacity:disabled?.5:1};
+  const sizes={sm:{padding:"7px 14px",fontSize:12},md:{padding:"10px 20px",fontSize:14},lg:{padding:"14px 32px",fontSize:16}};
+  const variants={
+    default:{background:h?"#EFEFED":T.white,color:T.ink,border:"1px solid "+T.border,boxShadow:"0 1px 2px rgba(0,0,0,.06)"},
+    primary:{background:h?T.accentDark:T.accent,color:"#fff",boxShadow:"0 2px 8px rgba(26,107,255,.3)"},
+    ghost:{background:"transparent",color:T.inkLight,border:"none"},
   };
-  return <button onMouseEnter={()=>setHover(true)} onMouseLeave={()=>setHover(false)} onClick={onClick} style={{...base,...sizes[size],...variants[variant],...style}}>{children}</button>;
+  return <button onMouseEnter={()=>setH(true)} onMouseLeave={()=>setH(false)} onClick={onClick} disabled={disabled} style={{...base,...sizes[size],...variants[variant],...style}}>{children}</button>;
 }
 
-function Input({ value, onChange, placeholder, type="text", style={} }) {
+function Input({value,onChange,placeholder,type,style}){
+  type=type||"text";style=style||{};
   return <input type={type} value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder}
-    style={{background:T.white,border:`1px solid ${T.border}`,borderRadius:7,color:T.ink,padding:"9px 12px",fontSize:14,width:"100%",boxSizing:"border-box",fontFamily:"inherit",outline:"none",transition:"border .15s",...style}}
-    onFocus={e=>e.target.style.borderColor=T.accent} onBlur={e=>e.target.style.borderColor=T.border} />;
+    style={{background:T.white,border:"1px solid "+T.border,borderRadius:8,color:T.ink,padding:"10px 14px",fontSize:14,width:"100%",boxSizing:"border-box",fontFamily:"inherit",outline:"none",...style}}
+    onFocus={e=>e.target.style.borderColor=T.accent} onBlur={e=>e.target.style.borderColor=T.border}/>;
 }
 
-function Select({ value, onChange, options, style={} }) {
+function Sel({value,onChange,options}){
   return <select value={value} onChange={e=>onChange(e.target.value)}
-    style={{background:T.white,border:`1px solid ${T.border}`,borderRadius:7,color:T.ink,padding:"9px 12px",fontSize:14,width:"100%",fontFamily:"inherit",outline:"none",...style}}>
+    style={{background:T.white,border:"1px solid "+T.border,borderRadius:8,color:T.ink,padding:"10px 14px",fontSize:14,width:"100%",fontFamily:"inherit",outline:"none"}}>
     {options.map(o=><option key={o.value} value={o.value}>{o.label}</option>)}
   </select>;
 }
 
-function Badge({ label, color }) {
-  return <span style={{background:color+"18",color,border:`1px solid ${color}30`,borderRadius:20,padding:"3px 10px",fontSize:11,fontWeight:700,letterSpacing:.3}}>{label}</span>;
+function Badge({label,color}){
+  return <span style={{background:color+"18",color,border:"1px solid "+color+"30",borderRadius:20,padding:"3px 10px",fontSize:11,fontWeight:700}}>{label}</span>;
 }
 
-function Label({ children }) {
+function Lbl({children}){
   return <div style={{color:T.inkLight,fontSize:11,fontWeight:700,letterSpacing:.8,textTransform:"uppercase",marginBottom:6}}>{children}</div>;
 }
 
-function Card({ children, style={} }) {
-  return <div style={{background:T.white,border:`1px solid ${T.border}`,borderRadius:12,padding:24,...style}}>{children}</div>;
+function Card({children,style,onClick,onMouseEnter,onMouseLeave}){
+  return <div onClick={onClick} onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave} style={{background:T.white,border:"1px solid "+T.border,borderRadius:12,padding:24,...(style||{})}}>{children}</div>;
 }
 
-// ─── LANDING PAGE ─────────────────────────────────────────────────────
-function Landing({ onEnter }) {
-  const [activeFaq, setActiveFaq] = useState(null);
-
-  const faqs = [
-    { q: "Est-ce que c'est gratuit ?", a: "Oui, le plan gratuit permet de créer jusqu'à 5 documents par mois. Le plan Pro à 1 990 DA/mois est illimité." },
-    { q: "Mes données sont-elles sécurisées ?", a: "Toutes vos données sont chiffrées et hébergées en Algérie. Vous pouvez exporter ou supprimer vos données à tout moment." },
-    { q: "Puis-je personnaliser mes documents avec mon logo ?", a: "Oui, sur le plan Pro vous pouvez ajouter votre logo, vos couleurs et vos coordonnées bancaires." },
-    { q: "Comment fonctionne la TVA algérienne ?", a: "InvoiceDZ est configuré pour la TVA algérienne (19% standard). Vous pouvez aussi la désactiver pour les entreprises exonérées." },
-    { q: "Puis-je exporter en PDF ?", a: "Oui, chaque document peut être exporté en PDF prêt à imprimer ou à envoyer par email." },
-  ];
-
-  const features = [
-    { icon:"🧾", title:"5 types de documents", desc:"Facture, Proforma, Devis, Bon de Commande, Bon de Livraison — tout en un seul endroit." },
-    { icon:"⚡", title:"Création en 30 secondes", desc:"Interface épurée, sans friction. Remplissez, prévisualisez, exportez." },
-    { icon:"🇩🇿", title:"Conforme Algérie", desc:"TVA 19%, NIF, BaridiMob, CCP — pensé pour les entreprises algériennes." },
-    { icon:"📊", title:"Tableau de bord", desc:"Suivez vos documents, montants en attente et clients en un coup d'œil." },
-    { icon:"🔒", title:"Données sécurisées", desc:"Vos documents sont sauvegardés et accessibles depuis n'importe quel appareil." },
-    { icon:"🖨️", title:"Export PDF", desc:"Documents professionnels prêts à imprimer ou à envoyer par email." },
-  ];
-
-  return (
-    <div style={{background:T.bg,minHeight:"100vh",fontFamily:"system-ui,-apple-system,sans-serif",color:T.ink}}>
-
-      {/* NAV */}
-      <nav style={{background:T.white,borderBottom:`1px solid ${T.border}`,position:"sticky",top:0,zIndex:100}}>
-        <div style={{maxWidth:1100,margin:"0 auto",padding:"0 24px",height:60,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-          <div style={{display:"flex",alignItems:"center",gap:8}}>
-            <div style={{width:28,height:28,background:T.accent,borderRadius:7,display:"flex",alignItems:"center",justifyContent:"center"}}>
-              <span style={{color:"#fff",fontSize:14,fontWeight:900}}>i</span>
-            </div>
-            <span style={{fontWeight:800,fontSize:17,letterSpacing:-.5}}>Invoice<span style={{color:T.accent}}>DZ</span></span>
-          </div>
-          <div style={{display:"flex",alignItems:"center",gap:8}}>
-            <Btn variant="ghost" size="sm">Connexion</Btn>
-            <Btn variant="primary" size="sm" onClick={onEnter}>Essayer gratuitement</Btn>
-          </div>
-        </div>
-      </nav>
-
-      {/* HERO */}
-      <section style={{maxWidth:1100,margin:"0 auto",padding:"80px 24px 60px",textAlign:"center"}}>
-        <div style={{display:"inline-flex",alignItems:"center",gap:8,background:T.accentBg,border:`1px solid ${T.accent}30`,borderRadius:20,padding:"6px 16px",marginBottom:32}}>
-          <span style={{width:6,height:6,borderRadius:3,background:T.accent,display:"inline-block"}}/>
-          <span style={{fontSize:12,color:T.accent,fontWeight:600}}>Nouveau · Facturation en ligne pour l'Algérie</span>
-        </div>
-
-        <h1 style={{fontSize:"clamp(36px,6vw,64px)",fontWeight:900,lineHeight:1.08,letterSpacing:-2,marginBottom:24,color:T.ink}}>
-          Vos factures algériennes,<br/>
-          <span style={{color:T.accent}}>sans perdre de temps.</span>
-        </h1>
-
-        <p style={{fontSize:18,color:T.inkMid,maxWidth:520,margin:"0 auto 40px",lineHeight:1.6}}>
-          Créez des factures, devis et bons de livraison conformes en quelques secondes. Conçu pour les PME et indépendants algériens.
-        </p>
-
-        <div style={{display:"flex",gap:12,justifyContent:"center",flexWrap:"wrap",marginBottom:60}}>
-          <Btn variant="primary" size="lg" onClick={onEnter}>Créer ma première facture →</Btn>
-          <Btn size="lg">Voir une démo</Btn>
-        </div>
-
-        {/* Fake doc preview */}
-        <div style={{maxWidth:720,margin:"0 auto",background:T.white,border:`1px solid ${T.border}`,borderRadius:16,padding:32,boxShadow:"0 8px 40px rgba(0,0,0,.08)",textAlign:"left"}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:24}}>
-            <div>
-              <div style={{fontWeight:900,fontSize:18,letterSpacing:-0.5,marginBottom:4}}>Entreprise SARL</div>
-              <div style={{fontSize:12,color:T.inkLight}}>Alger, Algérie · NIF: 099123456789000</div>
-            </div>
-            <div style={{textAlign:"right"}}>
-              <div style={{background:T.success,color:"#fff",borderRadius:6,padding:"4px 12px",fontSize:11,fontWeight:700,marginBottom:8}}>FACTURE</div>
-              <div style={{fontWeight:700,fontSize:16}}>FAC-2025-001</div>
-              <div style={{fontSize:12,color:T.inkLight,marginTop:4}}>15 juin 2025</div>
-            </div>
-          </div>
-          <div style={{borderTop:`1px solid ${T.border}`,borderBottom:`1px solid ${T.border}`,padding:"16px 0",marginBottom:16}}>
-            {[["Personnalisation T-shirts DTF (50 pcs)","50","Unité","1 200","60 000"],["Broderie logo entreprise (10 pcs)","10","Unité","3 500","35 000"]].map(([d,q,u,p,t],i)=>(
-              <div key={i} style={{display:"grid",gridTemplateColumns:"3fr 1fr 1fr 1fr 1fr",gap:8,padding:"8px 0",fontSize:13,color:i===0?T.ink:T.inkMid}}>
-                <span>{d}</span><span style={{textAlign:"center"}}>{q}</span><span style={{textAlign:"center"}}>{u}</span><span style={{textAlign:"right"}}>{p}</span><span style={{textAlign:"right",fontWeight:600}}>{t}</span>
-              </div>
-            ))}
-          </div>
-          <div style={{display:"flex",justifyContent:"flex-end"}}>
-            <div style={{minWidth:220}}>
-              {[["Sous-total HT","95 000 DA"],["TVA 19%","18 050 DA"]].map(([l,v])=>(
-                <div key={l} style={{display:"flex",justifyContent:"space-between",fontSize:13,color:T.inkLight,marginBottom:4}}><span>{l}</span><span>{v}</span></div>
-              ))}
-              <div style={{display:"flex",justifyContent:"space-between",fontWeight:800,fontSize:16,borderTop:`2px solid ${T.ink}`,paddingTop:8,marginTop:8}}><span>TOTAL TTC</span><span style={{color:T.accent}}>113 050 DA</span></div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* STATS */}
-      <section style={{background:T.ink,padding:"48px 24px"}}>
-        <div style={{maxWidth:1100,margin:"0 auto",display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:32,textAlign:"center"}}>
-          {[["500+","Entreprises utilisatrices"],["5 types","De documents supportés"],["100%","Conforme fiscalité algérienne"]].map(([n,l])=>(
-            <div key={l}>
-              <div style={{fontSize:40,fontWeight:900,color:T.white,letterSpacing:-1}}>{n}</div>
-              <div style={{fontSize:14,color:"#888",marginTop:6}}>{l}</div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* FEATURES */}
-      <section style={{maxWidth:1100,margin:"0 auto",padding:"80px 24px"}}>
-        <div style={{textAlign:"center",marginBottom:56}}>
-          <div style={{fontSize:12,fontWeight:700,color:T.accent,letterSpacing:2,textTransform:"uppercase",marginBottom:12}}>Fonctionnalités</div>
-          <h2 style={{fontSize:36,fontWeight:800,letterSpacing:-1}}>Tout ce qu'il vous faut, rien de superflu.</h2>
-        </div>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(300px,1fr))",gap:20}}>
-          {features.map(f=>(
-            <Card key={f.title} style={{transition:"box-shadow .2s",cursor:"default"}}
-              onMouseEnter={e=>e.currentTarget.style.boxShadow="0 4px 20px rgba(0,0,0,.1)"}
-              onMouseLeave={e=>e.currentTarget.style.boxShadow="none"}>
-              <div style={{fontSize:28,marginBottom:14}}>{f.icon}</div>
-              <div style={{fontWeight:700,fontSize:16,marginBottom:8}}>{f.title}</div>
-              <div style={{color:T.inkLight,fontSize:14,lineHeight:1.6}}>{f.desc}</div>
-            </Card>
-          ))}
-        </div>
-      </section>
-
-      {/* DOC TYPES */}
-      <section style={{background:T.white,borderTop:`1px solid ${T.border}`,borderBottom:`1px solid ${T.border}`,padding:"64px 24px"}}>
-        <div style={{maxWidth:1100,margin:"0 auto"}}>
-          <div style={{textAlign:"center",marginBottom:48}}>
-            <h2 style={{fontSize:32,fontWeight:800,letterSpacing:-.8}}>5 documents, une seule plateforme.</h2>
-          </div>
-          <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:16}}>
-            {Object.entries(DOC_TYPES).map(([k,t])=>(
-              <div key={k} style={{textAlign:"center",padding:"24px 16px",borderRadius:12,border:`1px solid ${t.color}30`,background:t.color+"08"}}>
-                <div style={{fontSize:32,marginBottom:12}}>{t.icon}</div>
-                <div style={{fontWeight:700,fontSize:13,color:t.color}}>{t.label}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* PRICING */}
-      <section style={{maxWidth:1100,margin:"0 auto",padding:"80px 24px"}}>
-        <div style={{textAlign:"center",marginBottom:56}}>
-          <div style={{fontSize:12,fontWeight:700,color:T.accent,letterSpacing:2,textTransform:"uppercase",marginBottom:12}}>Tarifs</div>
-          <h2 style={{fontSize:36,fontWeight:800,letterSpacing:-1}}>Simple et transparent.</h2>
-        </div>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:24,maxWidth:700,margin:"0 auto"}}>
-          {[
-            { name:"Gratuit", price:"0 DA", period:"/mois", features:["5 documents/mois","Tous les types de documents","Export PDF","Support email"], cta:"Commencer", variant:"default" },
-            { name:"Pro", price:"1 990 DA", period:"/mois", features:["Documents illimités","Logo personnalisé","Multi-entreprises","Priorité support","Statistiques avancées"], cta:"Essayer Pro", variant:"primary", highlight:true },
-          ].map(p=>(
-            <div key={p.name} style={{background:p.highlight?T.ink:T.white,border:`1px solid ${p.highlight?T.ink:T.border}`,borderRadius:16,padding:32,position:"relative"}}>
-              {p.highlight && <div style={{position:"absolute",top:-12,left:"50%",transform:"translateX(-50%)",background:T.accent,color:"#fff",borderRadius:20,padding:"4px 16px",fontSize:11,fontWeight:700,whiteSpace:"nowrap"}}>Le plus populaire</div>}
-              <div style={{color:p.highlight?"#888":T.inkLight,fontSize:12,fontWeight:700,textTransform:"uppercase",letterSpacing:1,marginBottom:12}}>{p.name}</div>
-              <div style={{display:"flex",alignItems:"baseline",gap:4,marginBottom:24}}>
-                <span style={{fontSize:36,fontWeight:900,color:p.highlight?T.white:T.ink}}>{p.price}</span>
-                <span style={{color:p.highlight?"#666":T.inkLight,fontSize:14}}>{p.period}</span>
-              </div>
-              <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:28}}>
-                {p.features.map(f=>(
-                  <div key={f} style={{display:"flex",gap:8,alignItems:"center",fontSize:14,color:p.highlight?"#CCC":T.inkMid}}>
-                    <span style={{color:p.highlight?T.accent:T.success,fontWeight:700}}>✓</span>{f}
-                  </div>
-                ))}
-              </div>
-              <Btn variant={p.variant} style={{width:"100%",justifyContent:"center"}} onClick={onEnter}>{p.cta}</Btn>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* FAQ */}
-      <section style={{background:T.white,borderTop:`1px solid ${T.border}`,padding:"64px 24px"}}>
-        <div style={{maxWidth:680,margin:"0 auto"}}>
-          <div style={{textAlign:"center",marginBottom:48}}>
-            <h2 style={{fontSize:32,fontWeight:800,letterSpacing:-.8}}>Questions fréquentes</h2>
-          </div>
-          <div style={{display:"flex",flexDirection:"column",gap:4}}>
-            {faqs.map((f,i)=>(
-              <div key={i} style={{borderBottom:`1px solid ${T.border}`,overflow:"hidden"}}>
-                <button onClick={()=>setActiveFaq(activeFaq===i?null:i)} style={{width:"100%",background:"none",border:"none",padding:"18px 0",display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer",fontFamily:"inherit",fontSize:15,fontWeight:600,color:T.ink,textAlign:"left"}}>
-                  {f.q}
-                  <span style={{color:T.inkLight,fontSize:18,transform:activeFaq===i?"rotate(45deg)":"none",transition:"transform .2s",flexShrink:0,marginLeft:16}}>+</span>
-                </button>
-                {activeFaq===i && <div style={{paddingBottom:18,fontSize:14,color:T.inkMid,lineHeight:1.7}}>{f.a}</div>}
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* CTA FINAL */}
-      <section style={{background:T.accent,padding:"72px 24px",textAlign:"center"}}>
-        <h2 style={{fontSize:36,fontWeight:900,color:"#fff",letterSpacing:-1,marginBottom:16}}>Prêt à professionnaliser<br/>votre facturation ?</h2>
-        <p style={{color:"rgba(255,255,255,.75)",fontSize:16,marginBottom:32}}>Rejoignez des centaines d'entreprises algériennes. Gratuit pour commencer.</p>
-        <Btn size="lg" style={{background:"#fff",color:T.accent,fontWeight:800}} onClick={onEnter}>Créer mon compte gratuitement</Btn>
-      </section>
-
-      {/* FOOTER */}
-      <footer style={{background:T.ink,padding:"40px 24px"}}>
-        <div style={{maxWidth:1100,margin:"0 auto",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:16}}>
-          <div style={{display:"flex",alignItems:"center",gap:8}}>
-            <div style={{width:24,height:24,background:T.accent,borderRadius:6,display:"flex",alignItems:"center",justifyContent:"center"}}>
-              <span style={{color:"#fff",fontSize:12,fontWeight:900}}>i</span>
-            </div>
-            <span style={{fontWeight:800,color:"#fff"}}>Invoice<span style={{color:T.accent}}>DZ</span></span>
-          </div>
-          <div style={{fontSize:13,color:"#555"}}>© 2025 InvoiceDZ · Algérie · contact@invoicedz.dz</div>
-          <div style={{display:"flex",gap:20}}>
-            {["Confidentialité","CGU","Contact"].map(l=><a key={l} href="#" style={{color:"#555",fontSize:13,textDecoration:"none"}}>{l}</a>)}
-          </div>
-        </div>
-      </footer>
+function Logo(){
+  return <div style={{display:"flex",alignItems:"center",gap:8}}>
+    <div style={{width:30,height:30,background:T.accent,borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center"}}>
+      <span style={{color:"#fff",fontSize:16,fontWeight:900}}>i</span>
     </div>
-  );
+    <span style={{fontWeight:800,fontSize:18,letterSpacing:-.5}}>Invoice<span style={{color:T.accent}}>DZ</span></span>
+  </div>;
 }
 
-// ─── APP DASHBOARD ────────────────────────────────────────────────────
-function App({ onBack }) {
-  const [docs, setDocs] = useState([
-    { ...newDoc("FACTURE"), id:1, numero:"FAC-2025-001", statut:"PAYE", date:"2025-06-01", client:{nom:"Café El Bahdja",adresse:"Alger Centre",ville:"Alger",email:"",telephone:"",nif:""}, lignes:[{id:1,designation:"Tabliers personnalisés DTF",quantite:20,unite:"Pcs",prixUnitaire:1800,remise:0,tva:19}], remiseGlobale:0, tvaActive:true, notes:"", conditionsPaiement:"BaridiMob", dateEcheance:"", entreprise:{} },
-    { ...newDoc("DEVIS"),   id:2, numero:"DEV-2025-012", statut:"ENVOYE", date:"2025-06-10", client:{nom:"Clinique Ibn Sina",adresse:"Hydra",ville:"Alger",email:"",telephone:"",nif:""}, lignes:[{id:2,designation:"Blouses médicales brodées",quantite:50,unite:"Pcs",prixUnitaire:2200,remise:5,tva:19}], remiseGlobale:0, tvaActive:true, notes:"", conditionsPaiement:"Virement", dateEcheance:"2025-07-01", entreprise:{} },
-  ]);
-  const [activeId, setActiveId] = useState(null);
-  const [screen, setScreen] = useState("list"); // list | edit
-  const [tab, setTab] = useState("edit");
-  const [filterType, setFilterType] = useState("ALL");
-  const [search, setSearch] = useState("");
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-
-  const activeDoc = docs.find(d=>d.id===activeId);
-  const filtered = docs.filter(d=>{
-    if(filterType!=="ALL"&&d.type!==filterType) return false;
-    if(search&&!d.numero.toLowerCase().includes(search.toLowerCase())&&!d.client.nom.toLowerCase().includes(search.toLowerCase())) return false;
-    return true;
-  });
-
-  const createDoc = (type) => { const d=newDoc(type); setDocs(p=>[d,...p]); setActiveId(d.id); setScreen("edit"); setTab("edit"); };
-  const updateDoc = (u) => setDocs(p=>p.map(d=>d.id===u.id?u:d));
-  const deleteDoc = (id) => { setDocs(p=>p.filter(d=>d.id!==id)); if(activeId===id){setActiveId(null);setScreen("list");} };
-
-  const totauxAll = docs.reduce((acc,d)=>{ const t=calcTotaux(d.lignes,d.remiseGlobale,d.tvaActive); acc.total+=t.ttc; if(d.statut==="PAYE")acc.paye+=t.ttc; return acc; },{total:0,paye:0});
-
-  return (
-    <div style={{minHeight:"100vh",background:T.bg,fontFamily:"system-ui,-apple-system,sans-serif",color:T.ink}}>
-
-      {/* TOPBAR */}
-      <div style={{background:T.white,borderBottom:`1px solid ${T.border}`,height:56,display:"flex",alignItems:"center",padding:"0 20px",gap:12,position:"sticky",top:0,zIndex:100}}>
-        <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
-          <div style={{width:28,height:28,background:T.accent,borderRadius:7,display:"flex",alignItems:"center",justifyContent:"center"}}>
-            <span style={{color:"#fff",fontSize:14,fontWeight:900}}>i</span>
-          </div>
-          <span style={{fontWeight:800,fontSize:16,letterSpacing:-.5}}>Invoice<span style={{color:T.accent}}>DZ</span></span>
-        </div>
-
-        {screen==="edit"&&activeDoc&&(
-          <div style={{display:"flex",alignItems:"center",gap:6,flex:1,minWidth:0}}>
-            <span style={{color:T.border}}>›</span>
-            <span style={{color:T.inkLight,fontSize:13,flexShrink:0}}>{DOC_TYPES[activeDoc.type].label}</span>
-            <span style={{color:T.border}}>›</span>
-            <span style={{fontSize:13,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{activeDoc.numero}</span>
-            <Badge label={STATUTS[activeDoc.statut].label} color={STATUTS[activeDoc.statut].color} />
-          </div>
-        )}
-
-        <div style={{marginLeft:"auto",display:"flex",gap:8,alignItems:"center",flexShrink:0}}>
-          {screen==="edit"&&(
-            <>
-              <div style={{display:"flex",background:T.bg,borderRadius:8,border:`1px solid ${T.border}`,overflow:"hidden"}}>
-                {[["edit","✏️ Éditer"],["preview","👁 Aperçu"]].map(([t,l])=>(
-                  <button key={t} onClick={()=>setTab(t)} style={{padding:"7px 14px",fontSize:12,fontWeight:600,background:tab===t?T.white:"transparent",color:tab===t?T.ink:T.inkLight,border:"none",cursor:"pointer",fontFamily:"inherit",borderRight:t==="edit"?`1px solid ${T.border}`:"none"}}>
-                    {l}
-                  </button>
-                ))}
-              </div>
-              <Btn size="sm" onClick={()=>{setScreen("list");setActiveId(null);}}>← Retour</Btn>
-            </>
-          )}
-          <Btn variant="ghost" size="sm" onClick={onBack} style={{fontSize:12}}>Site ↗</Btn>
+// LANDING
+function Landing({onSignup,onLogin}){
+  const [faq,setFaq]=useState(null);
+  const faqs=[
+    {q:"Est-ce gratuit ?",a:"Oui. Le plan gratuit permet 5 documents/mois. Le plan Pro à 1 990 DA/mois est illimité."},
+    {q:"Puis-je ajouter mon logo ?",a:"Oui, lors de la création de chaque document vous pouvez uploader votre logo."},
+    {q:"Comment fonctionne la TVA ?",a:"InvoiceDZ supporte la TVA algérienne à 19%. Vous pouvez la désactiver si besoin."},
+    {q:"Mes données sont-elles sécurisées ?",a:"Vos données sont privées et vous pouvez les exporter ou supprimer à tout moment."},
+  ];
+  return <div style={{background:T.bg,minHeight:"100vh",fontFamily:"system-ui,-apple-system,sans-serif",color:T.ink}}>
+    <nav style={{background:T.white,borderBottom:"1px solid "+T.border,position:"sticky",top:0,zIndex:100}}>
+      <div style={{maxWidth:1100,margin:"0 auto",padding:"0 24px",height:60,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+        <Logo/>
+        <div style={{display:"flex",gap:8}}>
+          <Btn variant="ghost" size="sm" onClick={onLogin}>Connexion</Btn>
+          <Btn variant="primary" size="sm" onClick={onSignup}>Créer un compte</Btn>
         </div>
       </div>
-
-      {screen==="list" ? (
-        <div style={{maxWidth:1100,margin:"0 auto",padding:24}}>
-
-          {/* Stats */}
-          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:16,marginBottom:28}}>
-            {[
-              { label:"Total documents", value:docs.length, color:T.ink },
-              { label:"Total facturé", value:fmtDA(totauxAll.total), color:T.accent },
-              { label:"Total payé", value:fmtDA(totauxAll.paye), color:T.success },
-              { label:"En attente", value:fmtDA(totauxAll.total-totauxAll.paye), color:T.warning },
-            ].map(s=>(
-              <Card key={s.label} style={{padding:"18px 20px"}}>
-                <div style={{fontSize:11,color:T.inkLight,fontWeight:700,textTransform:"uppercase",letterSpacing:.8,marginBottom:8}}>{s.label}</div>
-                <div style={{fontSize:20,fontWeight:800,color:s.color}}>{s.value}</div>
-              </Card>
-            ))}
+    </nav>
+    <section style={{maxWidth:1100,margin:"0 auto",padding:"88px 24px 64px",textAlign:"center"}}>
+      <div style={{display:"inline-flex",alignItems:"center",gap:8,background:T.accentBg,border:"1px solid "+T.accent+"22",borderRadius:20,padding:"6px 16px",marginBottom:28}}>
+        <span style={{width:6,height:6,borderRadius:3,background:T.accent,display:"inline-block"}}/>
+        <span style={{fontSize:12,color:T.accent,fontWeight:600}}>Facturation en ligne · Conçu pour l'Algérie</span>
+      </div>
+      <h1 style={{fontSize:"clamp(36px,5.5vw,60px)",fontWeight:900,lineHeight:1.1,letterSpacing:-2,marginBottom:20}}>
+        Vos documents professionnels<br/><span style={{color:T.accent}}>en 3 étapes.</span>
+      </h1>
+      <p style={{fontSize:17,color:T.inkMid,maxWidth:480,margin:"0 auto 36px",lineHeight:1.65}}>
+        Factures, devis, bons de livraison — créez, exportez et gérez depuis un seul endroit.
+      </p>
+      <div style={{display:"flex",gap:12,justifyContent:"center",flexWrap:"wrap",marginBottom:64}}>
+        <Btn variant="primary" size="lg" onClick={onSignup}>Créer ma première facture →</Btn>
+        <Btn size="lg" onClick={onLogin}>Se connecter</Btn>
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:20,maxWidth:820,margin:"0 auto"}}>
+        {[{n:"1",title:"Choisir le type",desc:"Facture, Devis, Proforma, Bon de commande ou Bon de livraison"},
+          {n:"2",title:"Remplir & personnaliser",desc:"Vos infos, votre logo, les lignes et conditions de paiement"},
+          {n:"3",title:"Exporter en PDF",desc:"Document professionnel prêt à imprimer ou envoyer"}].map(s=>(
+          <div key={s.n} style={{background:T.white,border:"1px solid "+T.border,borderRadius:12,padding:24,textAlign:"left"}}>
+            <div style={{width:32,height:32,borderRadius:8,background:T.accentBg,color:T.accent,fontWeight:800,fontSize:14,display:"flex",alignItems:"center",justifyContent:"center",marginBottom:14}}>{s.n}</div>
+            <div style={{fontWeight:700,fontSize:15,marginBottom:6}}>{s.title}</div>
+            <div style={{color:T.inkLight,fontSize:13,lineHeight:1.6}}>{s.desc}</div>
           </div>
-
-          {/* Actions + filtres */}
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,flexWrap:"wrap",gap:12}}>
-            <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-              <Input value={search} onChange={setSearch} placeholder="Rechercher..." style={{width:200}} />
-              <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-                {[["ALL","Tous"],...Object.entries(DOC_TYPES).map(([k,v])=>[k,v.label])].map(([k,l])=>(
-                  <button key={k} onClick={()=>setFilterType(k)} style={{padding:"8px 14px",fontSize:12,fontWeight:600,borderRadius:7,border:`1px solid ${filterType===k?T.accent:T.border}`,background:filterType===k?T.accentBg:"transparent",color:filterType===k?T.accent:T.inkLight,cursor:"pointer",fontFamily:"inherit"}}>
-                    {l}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-              {Object.entries(DOC_TYPES).map(([k,t])=>(
-                <button key={k} onClick={()=>createDoc(k)} style={{display:"flex",alignItems:"center",gap:6,padding:"8px 14px",fontSize:12,fontWeight:600,borderRadius:7,border:`1px solid ${t.color}40`,background:t.color+"10",color:t.color,cursor:"pointer",fontFamily:"inherit"}}>
-                  + {t.label}
-                </button>
-              ))}
-            </div>
+        ))}
+      </div>
+    </section>
+    <section style={{background:T.white,borderTop:"1px solid "+T.border,borderBottom:"1px solid "+T.border,padding:"48px 24px"}}>
+      <div style={{maxWidth:900,margin:"0 auto",display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:14}}>
+        {Object.entries(DOC_TYPES).map(([k,t])=>(
+          <div key={k} style={{textAlign:"center",padding:"20px 12px",borderRadius:10,border:"1px solid "+t.color+"28",background:t.color+"08"}}>
+            <div style={{fontSize:28,marginBottom:10}}>{t.icon}</div>
+            <div style={{fontWeight:700,fontSize:12,color:t.color}}>{t.label}</div>
           </div>
-
-          {/* Liste */}
-          {filtered.length===0 ? (
-            <Card style={{textAlign:"center",padding:60}}>
-              <div style={{fontSize:40,marginBottom:16}}>📄</div>
-              <div style={{color:T.inkLight,fontSize:15}}>Aucun document · Créez votre premier document ci-dessus</div>
-            </Card>
-          ) : (
-            <div style={{display:"flex",flexDirection:"column",gap:8}}>
-              {filtered.map(doc=>{
-                const ti=DOC_TYPES[doc.type], si=STATUTS[doc.statut];
-                const t=calcTotaux(doc.lignes,doc.remiseGlobale,doc.tvaActive);
-                const showPrix=doc.type!=="BON_LIVRAISON";
-                return (
-                  <Card key={doc.id} style={{padding:"16px 20px",cursor:"pointer",display:"flex",alignItems:"center",gap:16,transition:"border-color .15s,box-shadow .15s"}}
-                    onClick={()=>{setActiveId(doc.id);setScreen("edit");setTab("edit");}}
-                    onMouseEnter={e=>{e.currentTarget.style.borderColor=T.accent;e.currentTarget.style.boxShadow="0 2px 12px rgba(0,0,0,.06)";}}
-                    onMouseLeave={e=>{e.currentTarget.style.borderColor=T.border;e.currentTarget.style.boxShadow="none";}}>
-                    <div style={{fontSize:20,flexShrink:0}}>{ti.icon}</div>
-                    <div style={{flex:1,minWidth:0}}>
-                      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:3,flexWrap:"wrap"}}>
-                        <span style={{fontSize:11,fontWeight:700,color:ti.color,textTransform:"uppercase",letterSpacing:.5}}>{ti.label}</span>
-                        <span style={{fontWeight:700,fontSize:14}}>{doc.numero}</span>
-                        <Badge label={si.label} color={si.color} />
-                      </div>
-                      <div style={{color:T.inkLight,fontSize:13}}>{doc.client.nom||"Client non défini"} · {doc.date}</div>
-                    </div>
-                    {showPrix&&<div style={{textAlign:"right",flexShrink:0}}>
-                      <div style={{fontWeight:700,fontSize:15}}>{fmtDA(doc.tvaActive?t.ttc:t.base)}</div>
-                      <div style={{color:T.inkLight,fontSize:11}}>{doc.lignes.length} ligne{doc.lignes.length>1?"s":""}</div>
-                    </div>}
-                    <button onClick={e=>{e.stopPropagation();deleteDoc(doc.id);}} style={{background:"none",border:"none",color:T.border,cursor:"pointer",fontSize:16,padding:"4px 8px",flexShrink:0,transition:"color .15s"}}
-                      onMouseEnter={e=>e.target.style.color=T.danger}
-                      onMouseLeave={e=>e.target.style.color=T.border}>✕</button>
-                  </Card>
-                );
-              })}
+        ))}
+      </div>
+    </section>
+    <section style={{maxWidth:760,margin:"0 auto",padding:"64px 24px"}}>
+      <div style={{textAlign:"center",marginBottom:44}}>
+        <div style={{fontSize:11,fontWeight:700,color:T.accent,letterSpacing:2,textTransform:"uppercase",marginBottom:10}}>Tarifs</div>
+        <h2 style={{fontSize:30,fontWeight:800,letterSpacing:-.8}}>Simple et transparent.</h2>
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:20}}>
+        {[{name:"Gratuit",price:"0 DA",period:"/mois",features:["5 documents/mois","5 types de documents","Export PDF","Support email"],cta:"Commencer",v:"default"},
+          {name:"Pro",price:"1 990 DA",period:"/mois",features:["Documents illimités","Logo personnalisé","Multi-entreprises","Support prioritaire"],cta:"Essayer Pro",v:"primary",hot:true}].map(p=>(
+          <div key={p.name} style={{background:p.hot?T.ink:T.white,border:"1px solid "+(p.hot?"transparent":T.border),borderRadius:14,padding:28,position:"relative"}}>
+            {p.hot&&<div style={{position:"absolute",top:-11,left:"50%",transform:"translateX(-50%)",background:T.accent,color:"#fff",borderRadius:20,padding:"3px 14px",fontSize:11,fontWeight:700,whiteSpace:"nowrap"}}>Le plus populaire</div>}
+            <div style={{color:p.hot?"#777":T.inkLight,fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:1,marginBottom:10}}>{p.name}</div>
+            <div style={{display:"flex",alignItems:"baseline",gap:3,marginBottom:20}}>
+              <span style={{fontSize:30,fontWeight:900,color:p.hot?"#fff":T.ink}}>{p.price}</span>
+              <span style={{color:p.hot?"#555":T.inkLight,fontSize:13}}>{p.period}</span>
             </div>
-          )}
-        </div>
-      ) : activeDoc ? (
-        <div style={{maxWidth:900,margin:"0 auto",padding:24}}>
-          {tab==="edit" ? <DocEditorFull doc={activeDoc} onChange={updateDoc} /> : <DocPreviewFull doc={activeDoc} />}
-        </div>
-      ) : null}
-    </div>
-  );
+            <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:24}}>
+              {p.features.map(f=><div key={f} style={{display:"flex",gap:8,fontSize:13,color:p.hot?"#bbb":T.inkMid}}><span style={{color:p.hot?T.accent:T.success,fontWeight:700}}>✓</span>{f}</div>)}
+            </div>
+            <Btn variant={p.v} style={{width:"100%"}} onClick={onSignup}>{p.cta}</Btn>
+          </div>
+        ))}
+      </div>
+    </section>
+    <section style={{background:T.white,borderTop:"1px solid "+T.border,padding:"48px 24px"}}>
+      <div style={{maxWidth:600,margin:"0 auto"}}>
+        <h2 style={{fontSize:26,fontWeight:800,textAlign:"center",marginBottom:32,letterSpacing:-.5}}>Questions fréquentes</h2>
+        {faqs.map((f,i)=>(
+          <div key={i} style={{borderBottom:"1px solid "+T.border}}>
+            <button onClick={()=>setFaq(faq===i?null:i)} style={{width:"100%",background:"none",border:"none",padding:"15px 0",display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer",fontFamily:"inherit",fontSize:14,fontWeight:600,color:T.ink,textAlign:"left"}}>
+              {f.q}<span style={{color:T.inkLight,fontSize:18,transform:faq===i?"rotate(45deg)":"none",transition:"transform .2s",flexShrink:0,marginLeft:12}}>+</span>
+            </button>
+            {faq===i&&<div style={{paddingBottom:14,fontSize:13,color:T.inkMid,lineHeight:1.7}}>{f.a}</div>}
+          </div>
+        ))}
+      </div>
+    </section>
+    <section style={{background:T.accent,padding:"56px 24px",textAlign:"center"}}>
+      <h2 style={{fontSize:30,fontWeight:900,color:"#fff",letterSpacing:-.8,marginBottom:12}}>Prêt à professionnaliser votre facturation ?</h2>
+      <p style={{color:"rgba(255,255,255,.7)",marginBottom:24,fontSize:15}}>Gratuit pour commencer. Aucune carte bancaire requise.</p>
+      <Btn size="lg" style={{background:"#fff",color:T.accent,fontWeight:800}} onClick={onSignup}>Créer mon compte gratuitement</Btn>
+    </section>
+    <footer style={{background:T.ink,padding:"28px 24px"}}>
+      <div style={{maxWidth:1100,margin:"0 auto",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:12}}>
+        <Logo/>
+        <div style={{fontSize:12,color:"#555"}}>© 2025 InvoiceDZ · contact@invoicedz.dz</div>
+      </div>
+    </footer>
+  </div>;
 }
 
-// ─── ÉDITEUR ──────────────────────────────────────────────────────────
-function DocEditorFull({ doc, onChange }) {
-  const up = (path, val) => {
-    const parts=path.split("."); const next={...doc}; let obj=next;
-    for(let i=0;i<parts.length-1;i++) obj=obj[parts[i]]={...obj[parts[i]]};
-    obj[parts[parts.length-1]]=val; onChange(next);
+// AUTH
+function Auth({mode,onAuth,onToggle}){
+  const [nom,setNom]=useState("");
+  const [email,setEmail]=useState("");
+  const [pass,setPass]=useState("");
+  const [err,setErr]=useState("");
+  const handle = () => {
+    if(mode==="signup"&&!nom.trim()){setErr("Entrez votre nom");return;}
+    if(!email.includes("@")){setErr("Email invalide");return;}
+    if(pass.length<6){setErr("Mot de passe trop court (min 6 car.)");return;}
+    setErr("");
+    onAuth({id:Math.random(),nom:nom||email.split("@")[0],email,
+      entreprise:{nom:"",adresse:"",ville:"",telephone:"",email:"",nif:"",rc:"",ai:"",idFiscal:"",code:""},
+      logo:null});
   };
-  const upL = (id,field,val) => onChange({...doc,lignes:doc.lignes.map(l=>l.id===id?{...l,[field]:["designation","unite"].includes(field)?val:parseFloat(val)||0}:l)});
-  const addL = () => onChange({...doc,lignes:[...doc.lignes,emptyLigne()]});
-  const delL = (id) => onChange({...doc,lignes:doc.lignes.filter(l=>l.id!==id)});
-  const showPrix = doc.type!=="BON_LIVRAISON";
-  const showTVA = doc.tvaActive&&showPrix;
-  const totaux = calcTotaux(doc.lignes,doc.remiseGlobale,doc.tvaActive);
-  const s = { mb:{ marginBottom:16 } };
-
-  return (
-    <div style={{display:"flex",flexDirection:"column",gap:16}}>
-
-      <Card>
-        <div style={{fontSize:11,fontWeight:700,color:T.accent,letterSpacing:1.5,textTransform:"uppercase",marginBottom:20}}>Informations générales</div>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:16}}>
-          <div><Label>Numéro</Label><Input value={doc.numero} onChange={v=>up("numero",v)} /></div>
-          <div><Label>Statut</Label><Select value={doc.statut} onChange={v=>up("statut",v)} options={STATUTS_PAR_TYPE[doc.type].map(s=>({value:s,label:STATUTS[s].label}))} /></div>
-          <div><Label>Date</Label><Input type="date" value={doc.date} onChange={v=>up("date",v)} /></div>
-          {doc.type!=="BON_LIVRAISON"&&<div><Label>Date d'échéance</Label><Input type="date" value={doc.dateEcheance} onChange={v=>up("dateEcheance",v)} /></div>}
+  return <div style={{minHeight:"100vh",background:T.bg,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"system-ui,-apple-system,sans-serif",padding:24}}>
+    <div style={{width:"100%",maxWidth:400}}>
+      <div style={{textAlign:"center",marginBottom:32}}>
+        <Logo/>
+        <div style={{marginTop:24,fontSize:22,fontWeight:800,letterSpacing:-.5}}>{mode==="signup"?"Créer votre compte":"Bon retour 👋"}</div>
+        <div style={{color:T.inkLight,fontSize:14,marginTop:6}}>{mode==="signup"?"Gratuit · Aucune carte requise":"Connectez-vous à votre espace"}</div>
+      </div>
+      <Card style={{padding:32}}>
+        <div style={{display:"flex",flexDirection:"column",gap:16}}>
+          {mode==="signup"&&<div><Lbl>Votre nom</Lbl><Input value={nom} onChange={setNom} placeholder="Mohamed Yakoubi"/></div>}
+          <div><Lbl>Email</Lbl><Input value={email} onChange={setEmail} placeholder="vous@email.dz" type="email"/></div>
+          <div><Lbl>Mot de passe</Lbl><Input value={pass} onChange={setPass} placeholder="Min. 6 caractères" type="password"/></div>
+          {err&&<div style={{background:"#FEF2F2",border:"1px solid #FECACA",borderRadius:8,padding:"10px 14px",fontSize:13,color:T.danger}}>{err}</div>}
+          <Btn variant="primary" size="lg" onClick={handle} style={{width:"100%",marginTop:4}}>
+            {mode==="signup"?"Créer mon compte →":"Se connecter →"}
+          </Btn>
         </div>
       </Card>
+      <div style={{textAlign:"center",marginTop:20,fontSize:13,color:T.inkLight}}>
+        {mode==="signup"?"Déjà un compte ?":"Pas encore de compte ?"}{" "}
+        <button onClick={onToggle} style={{background:"none",border:"none",color:T.accent,fontWeight:600,cursor:"pointer",fontFamily:"inherit",fontSize:13}}>
+          {mode==="signup"?"Se connecter":"Créer un compte"}
+        </button>
+      </div>
+    </div>
+  </div>;
+}
 
+// STEP 1
+function Step1({onChoix}){
+  const [sel,setSel]=useState(null);
+  return <div style={{maxWidth:760,margin:"0 auto",padding:"48px 24px"}}>
+    <div style={{marginBottom:36,textAlign:"center"}}>
+      <div style={{fontSize:11,fontWeight:700,color:T.accent,letterSpacing:2,textTransform:"uppercase",marginBottom:10}}>Étape 1 / 3</div>
+      <h2 style={{fontSize:26,fontWeight:800,letterSpacing:-.5,marginBottom:8}}>Quel document voulez-vous créer ?</h2>
+    </div>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))",gap:14,marginBottom:32}}>
+      {Object.entries(DOC_TYPES).map(([k,t])=>(
+        <button key={k} onClick={()=>setSel(k)} style={{background:sel===k?t.color+"12":T.white,border:"2px solid "+(sel===k?t.color:T.border),borderRadius:12,padding:"20px 16px",textAlign:"left",cursor:"pointer",fontFamily:"inherit",transition:"all .15s",outline:"none"}}>
+          <div style={{fontSize:28,marginBottom:10}}>{t.icon}</div>
+          <div style={{fontWeight:700,fontSize:14,color:sel===k?t.color:T.ink,marginBottom:4}}>{t.label}</div>
+          <div style={{fontSize:12,color:T.inkLight,lineHeight:1.5}}>{t.desc}</div>
+        </button>
+      ))}
+    </div>
+    <div style={{display:"flex",justifyContent:"flex-end"}}>
+      <Btn variant="primary" size="lg" disabled={!sel} onClick={()=>onChoix(sel)}>Continuer →</Btn>
+    </div>
+  </div>;
+}
+
+// STEP 2
+function Step2({doc,onChange,onNext,onBack}){
+  const up=(path,val)=>{const parts=path.split(".");const next={...doc};let obj=next;for(let i=0;i<parts.length-1;i++)obj=obj[parts[i]]={...obj[parts[i]]};obj[parts[parts.length-1]]=val;onChange(next);};
+  const upL=(id,f,v)=>onChange({...doc,lignes:doc.lignes.map(l=>l.id===id?{...l,[f]:["designation","unite"].includes(f)?v:parseFloat(v)||0}:l)});
+  const addL=()=>onChange({...doc,lignes:[...doc.lignes,emptyLigne()]});
+  const delL=id=>onChange({...doc,lignes:doc.lignes.filter(l=>l.id!==id)});
+  const showPrix=doc.type!=="BON_LIVRAISON";
+  const showTVA=doc.tvaActive&&showPrix;
+  const totaux=calcTotaux(doc.lignes,doc.remiseGlobale,doc.tvaActive);
+  const ti=DOC_TYPES[doc.type];
+  const fileRef=useRef(null);
+  const handleLogo=e=>{const file=e.target.files[0];if(!file)return;const r=new FileReader();r.onload=ev=>onChange({...doc,logo:ev.target.result});r.readAsDataURL(file);};
+  return <div style={{maxWidth:960,margin:"0 auto",padding:"32px 24px"}}>
+    <div style={{marginBottom:24,display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:12}}>
+      <div>
+        <div style={{fontSize:11,fontWeight:700,color:T.accent,letterSpacing:2,textTransform:"uppercase",marginBottom:6}}>Étape 2 / 3</div>
+        <div style={{display:"flex",alignItems:"center",gap:10}}>
+          <span style={{fontSize:20}}>{ti.icon}</span>
+          <h2 style={{fontSize:20,fontWeight:800,letterSpacing:-.4,margin:0}}>{ti.label}</h2>
+          <Badge label={doc.numero} color={ti.color}/>
+        </div>
+      </div>
+      <div style={{display:"flex",gap:8}}>
+        <Btn size="sm" onClick={onBack}>← Retour</Btn>
+        <Btn variant="primary" size="sm" onClick={onNext}>Aperçu & Export →</Btn>
+      </div>
+    </div>
+    <div style={{display:"flex",flexDirection:"column",gap:16}}>
+      <Card>
+        <div style={{fontSize:11,fontWeight:700,color:T.accent,letterSpacing:1.5,textTransform:"uppercase",marginBottom:16}}>Document</div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:14}}>
+          <div><Lbl>Numéro</Lbl><Input value={doc.numero} onChange={v=>up("numero",v)}/></div>
+          <div><Lbl>Statut</Lbl><Sel value={doc.statut} onChange={v=>up("statut",v)} options={STATUTS_PAR_TYPE[doc.type].map(s=>({value:s,label:STATUTS[s].label}))}/></div>
+          <div><Lbl>Date</Lbl><Input type="date" value={doc.date} onChange={v=>up("date",v)}/></div>
+          {doc.type!=="BON_LIVRAISON"&&<div><Lbl>Échéance</Lbl><Input type="date" value={doc.dateEcheance} onChange={v=>up("dateEcheance",v)}/></div>}
+        </div>
+      </Card>
+      <Card>
+        <div style={{fontSize:11,fontWeight:700,color:T.accent,letterSpacing:1.5,textTransform:"uppercase",marginBottom:16}}>Logo entreprise</div>
+        <div style={{display:"flex",alignItems:"center",gap:16}}>
+          {doc.logo?<div style={{position:"relative"}}>
+            <img src={doc.logo} alt="logo" style={{height:56,maxWidth:150,objectFit:"contain",borderRadius:6,border:"1px solid "+T.border}}/>
+            <button onClick={()=>onChange({...doc,logo:null})} style={{position:"absolute",top:-8,right:-8,background:T.danger,color:"#fff",border:"none",borderRadius:10,width:20,height:20,fontSize:12,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
+          </div>:<div onClick={()=>fileRef.current.click()} style={{width:120,height:56,border:"2px dashed "+T.border,borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:T.inkLight,fontSize:12,textAlign:"center",padding:8}}>+ Uploader logo</div>}
+          <input ref={fileRef} type="file" accept="image/*" onChange={handleLogo} style={{display:"none"}}/>
+          <div style={{fontSize:12,color:T.inkLight,lineHeight:1.7}}>PNG transparent recommandé<br/>Apparaît en haut du document</div>
+        </div>
+      </Card>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
         <Card>
-          <div style={{fontSize:11,fontWeight:700,color:T.accent,letterSpacing:1.5,textTransform:"uppercase",marginBottom:20}}>Votre entreprise</div>
-          <div style={{display:"flex",flexDirection:"column",gap:12}}>
-            <div><Label>Nom</Label><Input value={doc.entreprise?.nom||""} onChange={v=>up("entreprise.nom",v)} placeholder="YAKOUBI MOHAMED" /></div>
-            <div><Label>Adresse</Label><Input value={doc.entreprise?.adresse||""} onChange={v=>up("entreprise.adresse",v)} placeholder="Clos de la Grotte, Ann Benian, n° 137" /></div>
-            <div><Label>Ville</Label><Input value={doc.entreprise?.ville||""} onChange={v=>up("entreprise.ville",v)} placeholder="Alger" /></div>
-            <div><Label>Téléphone</Label><Input value={doc.entreprise?.telephone||""} onChange={v=>up("entreprise.telephone",v)} placeholder="05XX XX XX XX" /></div>
-            <div><Label>Email</Label><Input value={doc.entreprise?.email||""} onChange={v=>up("entreprise.email",v)} placeholder="email@entreprise.dz" /></div>
-            <div><Label>Code</Label><Input value={doc.entreprise?.code||""} onChange={v=>up("entreprise.code",v)} placeholder="20-036" /></div>
-            <div><Label>Reg. Com.</Label><Input value={doc.entreprise?.rc||""} onChange={v=>up("entreprise.rc",v)} placeholder="23A5058012" /></div>
-            <div><Label>Art. d'Imp.</Label><Input value={doc.entreprise?.ai||""} onChange={v=>up("entreprise.ai",v)} placeholder="16570583839" /></div>
-            <div><Label>Id. Fiscal</Label><Input value={doc.entreprise?.idFiscal||""} onChange={v=>up("entreprise.idFiscal",v)} placeholder="19716320010218961600" /></div>
-            <div><Label>NIF</Label><Input value={doc.entreprise?.nif||""} onChange={v=>up("entreprise.nif",v)} placeholder="000000000000000" /></div>
+          <div style={{fontSize:11,fontWeight:700,color:T.accent,letterSpacing:1.5,textTransform:"uppercase",marginBottom:16}}>Votre entreprise</div>
+          <div style={{display:"flex",flexDirection:"column",gap:10}}>
+            <div><Lbl>Nom</Lbl><Input value={doc.entreprise&&doc.entreprise.nom||""} onChange={v=>up("entreprise.nom",v)} placeholder="YAKOUBI MOHAMED"/></div>
+            <div><Lbl>Adresse</Lbl><Input value={doc.entreprise&&doc.entreprise.adresse||""} onChange={v=>up("entreprise.adresse",v)} placeholder="Clos de la Grotte, Ann Benian"/></div>
+            <div><Lbl>Ville</Lbl><Input value={doc.entreprise&&doc.entreprise.ville||""} onChange={v=>up("entreprise.ville",v)} placeholder="Alger"/></div>
+            <div><Lbl>Téléphone</Lbl><Input value={doc.entreprise&&doc.entreprise.telephone||""} onChange={v=>up("entreprise.telephone",v)} placeholder="05XX XX XX XX"/></div>
+            <div><Lbl>Email</Lbl><Input value={doc.entreprise&&doc.entreprise.email||""} onChange={v=>up("entreprise.email",v)} placeholder="email@entreprise.dz"/></div>
+            <div><Lbl>Code</Lbl><Input value={doc.entreprise&&doc.entreprise.code||""} onChange={v=>up("entreprise.code",v)} placeholder="20-036"/></div>
+            <div><Lbl>Reg. Com.</Lbl><Input value={doc.entreprise&&doc.entreprise.rc||""} onChange={v=>up("entreprise.rc",v)} placeholder="23A5058012"/></div>
+            <div><Lbl>Art. d'Imp.</Lbl><Input value={doc.entreprise&&doc.entreprise.ai||""} onChange={v=>up("entreprise.ai",v)} placeholder="16570583839"/></div>
+            <div><Lbl>Id. Fiscal</Lbl><Input value={doc.entreprise&&doc.entreprise.idFiscal||""} onChange={v=>up("entreprise.idFiscal",v)} placeholder="19716320010218961600"/></div>
+            <div><Lbl>NIF</Lbl><Input value={doc.entreprise&&doc.entreprise.nif||""} onChange={v=>up("entreprise.nif",v)} placeholder="000000000000000"/></div>
           </div>
         </Card>
         <Card>
-          <div style={{fontSize:11,fontWeight:700,color:T.accent,letterSpacing:1.5,textTransform:"uppercase",marginBottom:20}}>Client</div>
-          <div style={{display:"flex",flexDirection:"column",gap:12}}>
-            <div><Label>Nom / Entreprise</Label><Input value={doc.client.nom} onChange={v=>up("client.nom",v)} placeholder="Nom du client" /></div>
-            <div><Label>Adresse</Label><Input value={doc.client.adresse} onChange={v=>up("client.adresse",v)} placeholder="Adresse" /></div>
-            <div><Label>Ville</Label><Input value={doc.client.ville} onChange={v=>up("client.ville",v)} placeholder="Alger" /></div>
-            <div><Label>Email</Label><Input value={doc.client.email} onChange={v=>up("client.email",v)} placeholder="client@email.dz" /></div>
-            <div><Label>Téléphone</Label><Input value={doc.client.telephone} onChange={v=>up("client.telephone",v)} placeholder="05XX XX XX XX" /></div>
-            <div><Label>NIF</Label><Input value={doc.client.nif} onChange={v=>up("client.nif",v)} placeholder="000000000000000" /></div>
+          <div style={{fontSize:11,fontWeight:700,color:T.accent,letterSpacing:1.5,textTransform:"uppercase",marginBottom:16}}>Client</div>
+          <div style={{display:"flex",flexDirection:"column",gap:10}}>
+            <div><Lbl>Nom / Entreprise</Lbl><Input value={doc.client.nom} onChange={v=>up("client.nom",v)} placeholder="Nom du client"/></div>
+            <div><Lbl>Adresse</Lbl><Input value={doc.client.adresse} onChange={v=>up("client.adresse",v)} placeholder="Adresse"/></div>
+            <div><Lbl>Ville</Lbl><Input value={doc.client.ville} onChange={v=>up("client.ville",v)} placeholder="Alger"/></div>
+            <div><Lbl>Email</Lbl><Input value={doc.client.email} onChange={v=>up("client.email",v)} placeholder="client@email.dz"/></div>
+            <div><Lbl>Téléphone</Lbl><Input value={doc.client.telephone} onChange={v=>up("client.telephone",v)} placeholder="05XX XX XX XX"/></div>
+            <div><Lbl>NIF Client</Lbl><Input value={doc.client.nif} onChange={v=>up("client.nif",v)} placeholder="000000000000000"/></div>
           </div>
         </Card>
       </div>
-
       <Card>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
           <div style={{fontSize:11,fontWeight:700,color:T.accent,letterSpacing:1.5,textTransform:"uppercase"}}>Lignes</div>
           {showPrix&&<div style={{display:"flex",alignItems:"center",gap:8}}>
-            <span style={{fontSize:12,color:T.inkLight}}>TVA</span>
+            <span style={{fontSize:12,color:T.inkLight}}>TVA 19%</span>
             <div onClick={()=>up("tvaActive",!doc.tvaActive)} style={{width:36,height:20,borderRadius:10,background:doc.tvaActive?T.accent:T.border,cursor:"pointer",position:"relative",transition:"background .2s"}}>
               <div style={{width:14,height:14,borderRadius:7,background:"#fff",position:"absolute",top:3,left:doc.tvaActive?19:3,transition:"left .2s"}}/>
             </div>
@@ -555,171 +361,303 @@ function DocEditorFull({ doc, onChange }) {
         </div>
         <div style={{overflowX:"auto"}}>
           <table style={{width:"100%",borderCollapse:"collapse",minWidth:showPrix?640:360}}>
-            <thead>
-              <tr style={{borderBottom:`2px solid ${T.border}`}}>
-                {["Désignation","Qté","Unité",...(showPrix?["P.U. HT","Rem%",...(showTVA?["TVA%"]:[""]),"Total HT"]:[]),""].map((h,i)=>(
-                  <th key={i} style={{color:T.inkLight,fontSize:10,fontWeight:700,letterSpacing:1,textTransform:"uppercase",padding:"0 6px 10px",textAlign:i===0?"left":"right"}}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {doc.lignes.map(l=>{
-                const {ht}=calcLigne(l);
-                return <tr key={l.id} style={{borderBottom:`1px solid ${T.border}`}}>
-                  <td style={{padding:"8px 6px",minWidth:140}}><Input value={l.designation} onChange={v=>upL(l.id,"designation",v)} placeholder="Description..." /></td>
-                  <td style={{padding:"8px 6px",width:60}}><Input value={l.quantite} onChange={v=>upL(l.id,"quantite",v)} type="number" style={{textAlign:"right"}} /></td>
-                  <td style={{padding:"8px 6px",width:70}}><Input value={l.unite} onChange={v=>upL(l.id,"unite",v)} /></td>
-                  {showPrix&&<>
-                    <td style={{padding:"8px 6px",width:90}}><Input value={l.prixUnitaire} onChange={v=>upL(l.id,"prixUnitaire",v)} type="number" style={{textAlign:"right"}} /></td>
-                    <td style={{padding:"8px 6px",width:55}}><Input value={l.remise} onChange={v=>upL(l.id,"remise",v)} type="number" style={{textAlign:"right"}} /></td>
-                    {showTVA&&<td style={{padding:"8px 6px",width:55}}><Input value={l.tva} onChange={v=>upL(l.id,"tva",v)} type="number" style={{textAlign:"right"}} /></td>}
-                    <td style={{padding:"8px 6px",width:100,textAlign:"right",fontSize:13,fontWeight:600,color:T.inkMid}}>{ht.toLocaleString("fr-DZ",{minimumFractionDigits:2})}</td>
-                  </>}
-                  <td style={{padding:"8px 4px",width:32,textAlign:"center"}}>
-                    <button onClick={()=>delL(l.id)} style={{background:"none",border:"none",color:T.border,cursor:"pointer",fontSize:15,padding:"2px 6px",transition:"color .15s"}}
-                      onMouseEnter={e=>e.target.style.color=T.danger} onMouseLeave={e=>e.target.style.color=T.border}>✕</button>
-                  </td>
-                </tr>;
-              })}
-            </tbody>
+            <thead><tr style={{borderBottom:"2px solid "+T.border}}>
+              {["Désignation","Qté","Unité",...(showPrix?["P.U. HT","Rem%",...(showTVA?["TVA%"]:[]),"Total HT"]:[]),""].map((h,i)=>(
+                <th key={i} style={{color:T.inkLight,fontSize:10,fontWeight:700,letterSpacing:1,textTransform:"uppercase",padding:"0 6px 10px",textAlign:i===0?"left":"right"}}>{h}</th>
+              ))}
+            </tr></thead>
+            <tbody>{doc.lignes.map(l=>{
+              const {ht}=calcLigne(l);
+              return <tr key={l.id} style={{borderBottom:"1px solid "+T.border}}>
+                <td style={{padding:"8px 6px",minWidth:150}}><Input value={l.designation} onChange={v=>upL(l.id,"designation",v)} placeholder="Description..."/></td>
+                <td style={{padding:"8px 4px",width:58}}><Input value={l.quantite} onChange={v=>upL(l.id,"quantite",v)} type="number" style={{textAlign:"right"}}/></td>
+                <td style={{padding:"8px 4px",width:68}}><Input value={l.unite} onChange={v=>upL(l.id,"unite",v)}/></td>
+                {showPrix&&<>
+                  <td style={{padding:"8px 4px",width:90}}><Input value={l.prixUnitaire} onChange={v=>upL(l.id,"prixUnitaire",v)} type="number" style={{textAlign:"right"}}/></td>
+                  <td style={{padding:"8px 4px",width:52}}><Input value={l.remise} onChange={v=>upL(l.id,"remise",v)} type="number" style={{textAlign:"right"}}/></td>
+                  {showTVA&&<td style={{padding:"8px 4px",width:52}}><Input value={l.tva} onChange={v=>upL(l.id,"tva",v)} type="number" style={{textAlign:"right"}}/></td>}
+                  <td style={{padding:"8px 6px",width:100,textAlign:"right",fontSize:13,fontWeight:600,color:T.inkMid}}>{ht.toLocaleString("fr-DZ",{minimumFractionDigits:2})}</td>
+                </>}
+                <td style={{padding:"8px 4px",width:28,textAlign:"center"}}>
+                  <button onClick={()=>delL(l.id)} style={{background:"none",border:"none",color:T.border,cursor:"pointer",fontSize:14,padding:"2px 5px",transition:"color .15s"}} onMouseEnter={e=>e.target.style.color=T.danger} onMouseLeave={e=>e.target.style.color=T.border}>✕</button>
+                </td>
+              </tr>;
+            })}</tbody>
           </table>
         </div>
         <Btn size="sm" onClick={addL} style={{marginTop:12}}>+ Ajouter une ligne</Btn>
-
-        {showPrix&&<div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",marginTop:24,gap:8}}>
-          <div style={{display:"flex",gap:32,fontSize:13}}><span style={{color:T.inkLight}}>Sous-total HT</span><span style={{fontWeight:600}}>{fmtDA(totaux.sous)}</span></div>
-          <div style={{display:"flex",gap:12,alignItems:"center"}}>
+        {showPrix&&<div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",marginTop:20,gap:7}}>
+          <div style={{display:"flex",gap:28,fontSize:13}}><span style={{color:T.inkLight}}>Sous-total HT</span><span style={{fontWeight:600}}>{fmtDA(totaux.sous)}</span></div>
+          <div style={{display:"flex",gap:10,alignItems:"center"}}>
             <span style={{fontSize:13,color:T.inkLight}}>Remise globale</span>
-            <Input value={doc.remiseGlobale} onChange={v=>up("remiseGlobale",parseFloat(v)||0)} type="number" style={{width:60,textAlign:"right"}} />
+            <Input value={doc.remiseGlobale} onChange={v=>up("remiseGlobale",parseFloat(v)||0)} type="number" style={{width:56,textAlign:"right"}}/>
             <span style={{fontSize:13,color:T.inkLight}}>%</span>
           </div>
-          {showTVA&&<div style={{display:"flex",gap:32,fontSize:13}}><span style={{color:T.inkLight}}>TVA</span><span style={{fontWeight:600}}>{fmtDA(totaux.totalTVA)}</span></div>}
-          <div style={{display:"flex",gap:32,fontSize:17,fontWeight:800,color:T.accent,borderTop:`2px solid ${T.ink}`,paddingTop:10}}>
+          {showTVA&&<div style={{display:"flex",gap:28,fontSize:13}}><span style={{color:T.inkLight}}>TVA</span><span style={{fontWeight:600}}>{fmtDA(totaux.totalTVA)}</span></div>}
+          <div style={{display:"flex",gap:28,fontSize:17,fontWeight:800,color:T.accent,borderTop:"2px solid "+T.ink,paddingTop:10}}>
             <span>TOTAL {showTVA?"TTC":"HT"}</span><span>{fmtDA(showTVA?totaux.ttc:totaux.base)}</span>
           </div>
         </div>}
       </Card>
-
       <Card>
-        <div style={{fontSize:11,fontWeight:700,color:T.accent,letterSpacing:1.5,textTransform:"uppercase",marginBottom:20}}>Conditions & Notes</div>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
-          {showPrix&&<div><Label>Mode de paiement</Label><Input value={doc.conditionsPaiement} onChange={v=>up("conditionsPaiement",v)} /></div>}
-          <div style={{gridColumn:showPrix?"auto":"span 2"}}>
-            <Label>Notes</Label>
-            <textarea value={doc.notes} onChange={e=>up("notes",e.target.value)} style={{background:T.white,border:`1px solid ${T.border}`,borderRadius:7,color:T.ink,padding:"9px 12px",fontSize:14,width:"100%",minHeight:80,boxSizing:"border-box",fontFamily:"inherit",resize:"vertical",outline:"none"}} />
-          </div>
+        <div style={{fontSize:11,fontWeight:700,color:T.accent,letterSpacing:1.5,textTransform:"uppercase",marginBottom:16}}>Conditions & Notes</div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
+          {showPrix&&<div><Lbl>Mode de paiement</Lbl><Input value={doc.conditionsPaiement} onChange={v=>up("conditionsPaiement",v)}/></div>}
+          <div style={{gridColumn:showPrix?"auto":"span 2"}}><Lbl>Notes</Lbl><textarea value={doc.notes} onChange={e=>up("notes",e.target.value)} style={{background:T.white,border:"1px solid "+T.border,borderRadius:8,color:T.ink,padding:"10px 14px",fontSize:14,width:"100%",minHeight:72,boxSizing:"border-box",fontFamily:"inherit",resize:"vertical",outline:"none"}}/></div>
         </div>
       </Card>
     </div>
-  );
+    <div style={{display:"flex",justifyContent:"flex-end",marginTop:20}}>
+      <Btn variant="primary" size="lg" onClick={onNext}>Aperçu & Export →</Btn>
+    </div>
+  </div>;
 }
 
-// ─── APERÇU ───────────────────────────────────────────────────────────
-function DocPreviewFull({ doc }) {
-  const ti = DOC_TYPES[doc.type];
-  const totaux = calcTotaux(doc.lignes,doc.remiseGlobale,doc.tvaActive);
-  const showPrix = doc.type!=="BON_LIVRAISON";
-  const showTVA = doc.tvaActive&&showPrix;
-  const ent = doc.entreprise||{};
-
-  return (
-    <div style={{background:"#fff",border:`1px solid ${T.border}`,borderRadius:12,padding:48,boxShadow:"0 4px 24px rgba(0,0,0,.08)",fontFamily:"Georgia,serif",color:"#111",maxWidth:800,margin:"0 auto"}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:36}}>
+// STEP 3
+function Step3({doc,onBack,onSave}){
+  const ti=DOC_TYPES[doc.type];
+  const totaux=calcTotaux(doc.lignes,doc.remiseGlobale,doc.tvaActive);
+  const showPrix=doc.type!=="BON_LIVRAISON";
+  const showTVA=doc.tvaActive&&showPrix;
+  const ent=doc.entreprise||{};
+  const printRef=useRef(null);
+  const handlePrint=()=>{
+    const content=printRef.current.innerHTML;
+    const win=window.open("","_blank");
+    win.document.write("<!DOCTYPE html><html><head><title>"+doc.numero+"</title><style>body{margin:0;padding:0;font-family:Georgia,serif}@media print{body{margin:0}}</style></head><body>"+content+"</body></html>");
+    win.document.close();win.focus();
+    setTimeout(()=>{win.print();win.close();},500);
+  };
+  return <div style={{maxWidth:880,margin:"0 auto",padding:"32px 24px"}}>
+    <div style={{marginBottom:24,display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:12}}>
+      <div>
+        <div style={{fontSize:11,fontWeight:700,color:T.accent,letterSpacing:2,textTransform:"uppercase",marginBottom:6}}>Étape 3 / 3</div>
+        <h2 style={{fontSize:20,fontWeight:800,letterSpacing:-.4,margin:0}}>Aperçu & Export</h2>
+      </div>
+      <div style={{display:"flex",gap:8}}>
+        <Btn size="sm" onClick={onBack}>← Modifier</Btn>
+        <Btn size="sm" onClick={handlePrint} style={{background:"#F0FDF4",color:T.success,border:"1px solid "+T.success+"30"}}>🖨️ PDF / Imprimer</Btn>
+        <Btn variant="primary" size="sm" onClick={onSave}>✓ Enregistrer au dashboard</Btn>
+      </div>
+    </div>
+    <div ref={printRef} style={{background:"#fff",border:"1px solid "+T.border,borderRadius:12,padding:48,boxShadow:"0 4px 24px rgba(0,0,0,.07)",fontFamily:"Georgia,serif",color:"#111"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:32}}>
         <div>
-          <div style={{fontFamily:"system-ui",fontWeight:900,fontSize:20,letterSpacing:-1}}>{ent.nom||"Votre Entreprise"}</div>
-          <div style={{marginTop:10,fontSize:12,color:"#555",lineHeight:1.9,fontFamily:"system-ui"}}>
-            {ent.adresse&&<div>{ent.adresse}</div>}
-            {ent.ville&&<div>{ent.ville}</div>}
+          {doc.logo&&<img src={doc.logo} alt="logo" style={{height:56,maxWidth:160,objectFit:"contain",marginBottom:12,display:"block"}}/>}
+          <div style={{fontFamily:"system-ui",fontWeight:900,fontSize:18,letterSpacing:-.5}}>{ent.nom||"Votre Entreprise"}</div>
+          <div style={{marginTop:8,fontSize:11.5,color:"#555",lineHeight:2,fontFamily:"system-ui"}}>
+            {ent.adresse&&<div>{ent.adresse}{ent.ville?", "+ent.ville:""}</div>}
             {ent.telephone&&<div>{ent.telephone}</div>}
             {ent.email&&<div>{ent.email}</div>}
             {ent.code&&<div>Code : {ent.code}</div>}
             {ent.rc&&<div>Reg. Com. n° {ent.rc}</div>}
             {ent.ai&&<div>Art. d'Imp. n° {ent.ai}</div>}
             {ent.idFiscal&&<div>Id. Fiscal n° {ent.idFiscal}</div>}
-            {ent.nif&&<div>NIF: {ent.nif}</div>}
+            {ent.nif&&<div>NIF : {ent.nif}</div>}
           </div>
         </div>
         <div style={{textAlign:"right"}}>
-          <div style={{background:ti.color,color:"#fff",padding:"6px 18px",borderRadius:6,fontFamily:"system-ui",fontWeight:800,fontSize:12,letterSpacing:1,marginBottom:10,display:"inline-block"}}>{ti.label.toUpperCase()}</div>
+          <div style={{background:ti.color,color:"#fff",padding:"6px 16px",borderRadius:6,fontFamily:"system-ui",fontWeight:800,fontSize:11,letterSpacing:1.2,marginBottom:10,display:"inline-block"}}>{ti.label.toUpperCase()}</div>
           <div style={{fontFamily:"system-ui",fontWeight:800,fontSize:18}}>{doc.numero}</div>
-          <div style={{fontSize:12,color:"#777",fontFamily:"system-ui",marginTop:6}}>Date : {doc.date}</div>
-          {doc.dateEcheance&&<div style={{fontSize:12,color:"#777",fontFamily:"system-ui"}}>Échéance : {doc.dateEcheance}</div>}
+          <div style={{fontSize:11.5,color:"#777",fontFamily:"system-ui",marginTop:6}}>Date : {doc.date}</div>
+          {doc.dateEcheance&&<div style={{fontSize:11.5,color:"#777",fontFamily:"system-ui"}}>Échéance : {doc.dateEcheance}</div>}
         </div>
       </div>
-
-      <div style={{borderTop:"2px solid #111",marginBottom:28}}/>
-
-      <div style={{marginBottom:28}}>
-        <div style={{fontFamily:"system-ui",fontSize:10,letterSpacing:2,color:"#999",marginBottom:6,textTransform:"uppercase"}}>Destinataire</div>
-        <div style={{fontWeight:700,fontSize:15,fontFamily:"system-ui"}}>{doc.client.nom||"—"}</div>
-        <div style={{fontSize:12,color:"#555",fontFamily:"system-ui",marginTop:4,lineHeight:1.8}}>
-          {doc.client.adresse&&<div>{doc.client.adresse}</div>}
-          {doc.client.ville&&<div>{doc.client.ville}</div>}
+      <div style={{borderTop:"2px solid #111",marginBottom:24}}/>
+      <div style={{marginBottom:24}}>
+        <div style={{fontFamily:"system-ui",fontSize:9,letterSpacing:2.5,color:"#aaa",textTransform:"uppercase",marginBottom:6}}>Destinataire</div>
+        <div style={{fontWeight:700,fontSize:14,fontFamily:"system-ui"}}>{doc.client.nom||"—"}</div>
+        <div style={{fontSize:11.5,color:"#555",fontFamily:"system-ui",marginTop:4,lineHeight:1.9}}>
+          {doc.client.adresse&&<div>{doc.client.adresse}{doc.client.ville?", "+doc.client.ville:""}</div>}
           {doc.client.email&&<div>{doc.client.email}</div>}
           {doc.client.telephone&&<div>{doc.client.telephone}</div>}
-          {doc.client.nif&&<div>NIF: {doc.client.nif}</div>}
+          {doc.client.nif&&<div>NIF : {doc.client.nif}</div>}
         </div>
       </div>
-
-      <table style={{width:"100%",borderCollapse:"collapse",marginBottom:24}}>
-        <thead>
-          <tr style={{background:"#111",color:"#fff"}}>
-            {["Désignation","Qté","Unité",...(showPrix?["P.U. HT","Rem%",...(showTVA?["TVA%"]:[]),"Total HT"]:[])].map((h,i)=>(
-              <th key={i} style={{padding:"10px 12px",textAlign:i===0?"left":"right",fontFamily:"system-ui",fontSize:10,letterSpacing:1,textTransform:"uppercase",fontWeight:700}}>{h}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {doc.lignes.map((l,i)=>{
-            const {ht}=calcLigne(l);
-            return <tr key={l.id} style={{background:i%2===0?"#F8F8F6":"#fff",borderBottom:"1px solid #EEE"}}>
-              <td style={{padding:"10px 12px",fontSize:13}}>{l.designation||<span style={{color:"#bbb"}}>—</span>}</td>
-              <td style={{padding:"10px 8px",textAlign:"right",fontSize:13}}>{l.quantite}</td>
-              <td style={{padding:"10px 8px",textAlign:"right",fontSize:12,color:"#777"}}>{l.unite}</td>
-              {showPrix&&<>
-                <td style={{padding:"10px 8px",textAlign:"right",fontSize:13}}>{l.prixUnitaire.toLocaleString("fr-DZ")}</td>
-                <td style={{padding:"10px 8px",textAlign:"right",fontSize:13,color:l.remise>0?"#C8762E":"#bbb"}}>{l.remise>0?`${l.remise}%`:"—"}</td>
-                {showTVA&&<td style={{padding:"10px 8px",textAlign:"right",fontSize:13}}>{l.tva}%</td>}
-                <td style={{padding:"10px 12px",textAlign:"right",fontSize:13,fontWeight:600}}>{ht.toLocaleString("fr-DZ",{minimumFractionDigits:2})}</td>
-              </>}
-            </tr>;
-          })}
-        </tbody>
+      <table style={{width:"100%",borderCollapse:"collapse",marginBottom:20}}>
+        <thead><tr style={{background:"#111",color:"#fff"}}>
+          {["N°","Désignation","Qté","Unité",...(showPrix?["P.U. HT","Rem%",...(showTVA?["TVA%"]:[]),"Total HT"]:[])].map((h,i)=>(
+            <th key={i} style={{padding:"9px 10px",textAlign:i<=1?"left":"right",fontFamily:"system-ui",fontSize:9,letterSpacing:1.2,textTransform:"uppercase",fontWeight:700}}>{h}</th>
+          ))}
+        </tr></thead>
+        <tbody>{doc.lignes.map((l,i)=>{
+          const {ht}=calcLigne(l);
+          return <tr key={l.id} style={{background:i%2===0?"#F8F8F6":"#fff",borderBottom:"1px solid #EEE"}}>
+            <td style={{padding:"9px 10px",fontSize:12,color:"#999",width:28}}>{i+1}</td>
+            <td style={{padding:"9px 10px",fontSize:12}}>{l.designation||<span style={{color:"#ccc"}}>—</span>}</td>
+            <td style={{padding:"9px 8px",textAlign:"right",fontSize:12}}>{l.quantite}</td>
+            <td style={{padding:"9px 8px",textAlign:"right",fontSize:11,color:"#777"}}>{l.unite}</td>
+            {showPrix&&<>
+              <td style={{padding:"9px 8px",textAlign:"right",fontSize:12}}>{l.prixUnitaire.toLocaleString("fr-DZ")}</td>
+              <td style={{padding:"9px 8px",textAlign:"right",fontSize:12,color:l.remise>0?"#C8762E":"#ccc"}}>{l.remise>0?l.remise+"%":"—"}</td>
+              {showTVA&&<td style={{padding:"9px 8px",textAlign:"right",fontSize:12}}>{l.tva}%</td>}
+              <td style={{padding:"9px 10px",textAlign:"right",fontSize:12,fontWeight:600}}>{ht.toLocaleString("fr-DZ",{minimumFractionDigits:2})}</td>
+            </>}
+          </tr>;
+        })}</tbody>
       </table>
-
-      {showPrix&&<div style={{display:"flex",justifyContent:"flex-end"}}>
-        <div style={{minWidth:260}}>
+      {showPrix&&<div style={{display:"flex",justifyContent:"flex-end",marginBottom:20}}>
+        <div style={{minWidth:250}}>
           {[["Sous-total HT",fmtDA(totaux.sous)],...(doc.remiseGlobale>0?[["Remise ("+doc.remiseGlobale+"%)","-"+fmtDA(totaux.remAmt)],["Base HT",fmtDA(totaux.base)]]:[])]
-            .map(([l,v])=><div key={l} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid #EEE",fontSize:13,color:"#666"}}><span>{l}</span><span style={{color:"#111"}}>{v}</span></div>)}
-          {showTVA&&<div style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid #EEE",fontSize:13,color:"#666"}}><span>TVA</span><span>{fmtDA(totaux.totalTVA)}</span></div>}
-          <div style={{display:"flex",justifyContent:"space-between",padding:"12px 0",fontWeight:800,fontSize:17,color:"#111",borderTop:"2px solid #111",marginTop:4}}>
+            .map(([l,v])=><div key={l} style={{display:"flex",justifyContent:"space-between",padding:"4px 0",borderBottom:"1px solid #EEE",fontSize:12,color:"#666"}}><span>{l}</span><span style={{color:"#111"}}>{v}</span></div>)}
+          {showTVA&&<div style={{display:"flex",justifyContent:"space-between",padding:"4px 0",borderBottom:"1px solid #EEE",fontSize:12,color:"#666"}}><span>TVA</span><span>{fmtDA(totaux.totalTVA)}</span></div>}
+          <div style={{display:"flex",justifyContent:"space-between",padding:"10px 0",fontWeight:800,fontSize:16,color:"#111",borderTop:"2px solid #111",marginTop:4}}>
             <span>TOTAL {showTVA?"TTC":"HT"}</span><span style={{color:T.accent}}>{fmtDA(showTVA?totaux.ttc:totaux.base)}</span>
           </div>
         </div>
       </div>}
-
-      {(doc.conditionsPaiement||doc.notes)&&<div style={{borderTop:"1px solid #EEE",paddingTop:20,marginTop:24}}>
-        {showPrix&&doc.conditionsPaiement&&<div style={{marginBottom:10}}>
-          <div style={{fontFamily:"system-ui",fontSize:10,letterSpacing:1.5,color:"#999",marginBottom:4,textTransform:"uppercase"}}>Mode de paiement</div>
-          <div style={{fontSize:13}}>{doc.conditionsPaiement}</div>
+      {(doc.conditionsPaiement||doc.notes)&&<div style={{borderTop:"1px solid #EEE",paddingTop:16,marginTop:8}}>
+        {showPrix&&doc.conditionsPaiement&&<div style={{marginBottom:8}}>
+          <div style={{fontFamily:"system-ui",fontSize:9,letterSpacing:2,color:"#aaa",textTransform:"uppercase",marginBottom:3}}>Mode de paiement</div>
+          <div style={{fontSize:12}}>{doc.conditionsPaiement}</div>
         </div>}
         {doc.notes&&<div>
-          <div style={{fontFamily:"system-ui",fontSize:10,letterSpacing:1.5,color:"#999",marginBottom:4,textTransform:"uppercase"}}>Notes</div>
-          <div style={{fontSize:13}}>{doc.notes}</div>
+          <div style={{fontFamily:"system-ui",fontSize:9,letterSpacing:2,color:"#aaa",textTransform:"uppercase",marginBottom:3}}>Notes</div>
+          <div style={{fontSize:12}}>{doc.notes}</div>
         </div>}
       </div>}
+      <div style={{marginTop:32,textAlign:"center",fontFamily:"system-ui",fontSize:9,color:"#ccc",letterSpacing:1}}>Document généré via InvoiceDZ · invoicedz.dz</div>
+    </div>
+    <div style={{display:"flex",justifyContent:"center",gap:12,marginTop:24}}>
+      <Btn size="md" onClick={handlePrint} style={{background:"#F0FDF4",color:T.success,border:"1px solid "+T.success+"30"}}>🖨️ Imprimer / Enregistrer en PDF</Btn>
+      <Btn variant="primary" size="md" onClick={onSave}>✓ Enregistrer & Dashboard</Btn>
+    </div>
+  </div>;
+}
 
-      <div style={{marginTop:40,textAlign:"center",fontFamily:"system-ui",fontSize:10,color:"#bbb",letterSpacing:1}}>
-        Généré via InvoiceDZ · invoicedz.dz
+// DASHBOARD
+function Dashboard({user,docs,onNewDoc,onViewDoc,onLogout}){
+  const [filter,setFilter]=useState("ALL");
+  const [search,setSearch]=useState("");
+  const filtered=docs.filter(d=>{
+    if(filter!=="ALL"&&d.type!==filter)return false;
+    if(search&&!d.numero.toLowerCase().includes(search.toLowerCase())&&!d.client.nom.toLowerCase().includes(search.toLowerCase()))return false;
+    return true;
+  });
+  const tot=docs.reduce((acc,d)=>{const t=calcTotaux(d.lignes,d.remiseGlobale,d.tvaActive);acc.total+=t.ttc;if(d.statut==="PAYE")acc.paye+=t.ttc;if(d.statut==="ENVOYE"||d.statut==="EN_ATTENTE")acc.attente+=t.ttc;return acc;},{total:0,paye:0,attente:0});
+  return <div style={{minHeight:"100vh",background:T.bg,fontFamily:"system-ui,-apple-system,sans-serif",color:T.ink}}>
+    <div style={{background:T.white,borderBottom:"1px solid "+T.border,height:56,display:"flex",alignItems:"center",padding:"0 24px",gap:12,position:"sticky",top:0,zIndex:100}}>
+      <Logo/>
+      <div style={{marginLeft:"auto",display:"flex",gap:8,alignItems:"center"}}>
+        <span style={{fontSize:13,color:T.inkLight}}>Bonjour, {user.nom} 👋</span>
+        <Btn variant="primary" size="sm" onClick={onNewDoc}>+ Nouveau document</Btn>
+        <Btn variant="ghost" size="sm" onClick={onLogout}>Déconnexion</Btn>
+      </div>
+    </div>
+    <div style={{maxWidth:1100,margin:"0 auto",padding:24}}>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))",gap:14,marginBottom:28}}>
+        {[{label:"Total documents",value:docs.length,color:T.ink,icon:"📄"},
+          {label:"Total facturé",value:fmtDA(tot.total),color:T.accent,icon:"💰"},
+          {label:"Payé",value:fmtDA(tot.paye),color:T.success,icon:"✅"},
+          {label:"En attente",value:fmtDA(tot.attente),color:T.warning,icon:"⏳"}].map(s=>(
+          <Card key={s.label} style={{padding:"16px 20px"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+              <div>
+                <div style={{fontSize:11,color:T.inkLight,fontWeight:700,textTransform:"uppercase",letterSpacing:.8,marginBottom:8}}>{s.label}</div>
+                <div style={{fontSize:typeof s.value==="number"?28:15,fontWeight:800,color:s.color}}>{s.value}</div>
+              </div>
+              <span style={{fontSize:22}}>{s.icon}</span>
+            </div>
+          </Card>
+        ))}
+      </div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,flexWrap:"wrap",gap:12}}>
+        <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+          <Input value={search} onChange={setSearch} placeholder="Rechercher..." style={{width:200}}/>
+          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+            {[["ALL","Tous"],...Object.entries(DOC_TYPES).map(([k,v])=>[k,v.label])].map(([k,l])=>(
+              <button key={k} onClick={()=>setFilter(k)} style={{padding:"7px 12px",fontSize:12,fontWeight:600,borderRadius:7,border:"1px solid "+(filter===k?T.accent:T.border),background:filter===k?T.accentBg:"transparent",color:filter===k?T.accent:T.inkLight,cursor:"pointer",fontFamily:"inherit"}}>{l}</button>
+            ))}
+          </div>
+        </div>
+        <Btn variant="primary" size="sm" onClick={onNewDoc}>+ Nouveau</Btn>
+      </div>
+      {filtered.length===0?(
+        <Card style={{textAlign:"center",padding:60}}>
+          <div style={{fontSize:40,marginBottom:14}}>📄</div>
+          <div style={{color:T.inkLight,fontSize:15,marginBottom:20}}>{docs.length===0?"Aucun document pour l'instant":"Aucun résultat"}</div>
+          {docs.length===0&&<Btn variant="primary" onClick={onNewDoc}>Créer mon premier document →</Btn>}
+        </Card>
+      ):(
+        <div style={{display:"flex",flexDirection:"column",gap:8}}>
+          {filtered.map(doc=>{
+            const ti=DOC_TYPES[doc.type],si=STATUTS[doc.statut];
+            const t=calcTotaux(doc.lignes,doc.remiseGlobale,doc.tvaActive);
+            const showPrix=doc.type!=="BON_LIVRAISON";
+            return <Card key={doc.id} style={{padding:"14px 20px",cursor:"pointer",display:"flex",alignItems:"center",gap:16,transition:"border-color .15s,box-shadow .15s"}}
+              onClick={()=>onViewDoc(doc)}
+              onMouseEnter={e=>{e.currentTarget.style.borderColor=T.accent;e.currentTarget.style.boxShadow="0 2px 12px rgba(0,0,0,.06)";}}
+              onMouseLeave={e=>{e.currentTarget.style.borderColor=T.border;e.currentTarget.style.boxShadow="none";}}>
+              <div style={{fontSize:18,flexShrink:0}}>{ti.icon}</div>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:3,flexWrap:"wrap"}}>
+                  <span style={{fontSize:10,fontWeight:700,color:ti.color,textTransform:"uppercase",letterSpacing:.5}}>{ti.label}</span>
+                  <span style={{fontWeight:700,fontSize:14}}>{doc.numero}</span>
+                  <Badge label={si.label} color={si.color}/>
+                </div>
+                <div style={{color:T.inkLight,fontSize:12}}>{doc.client.nom||"Client non défini"} · {doc.date}</div>
+              </div>
+              {showPrix&&<div style={{textAlign:"right",flexShrink:0}}>
+                <div style={{fontWeight:700,fontSize:14}}>{fmtDA(doc.tvaActive?t.ttc:t.base)}</div>
+                <div style={{color:T.inkLight,fontSize:11}}>{doc.lignes.length} ligne{doc.lignes.length>1?"s":""}</div>
+              </div>}
+            </Card>;
+          })}
+        </div>
+      )}
+    </div>
+  </div>;
+}
+
+// ROOT
+export default function Root(){
+  const [page,setPage]=useState("landing");
+  const [authMode,setAuthMode]=useState("signup");
+  const [user,setUser]=useState(null);
+  const [docs,setDocs]=useState([]);
+  const [wDoc,setWDoc]=useState(null);
+  const [wStep,setWStep]=useState(1);
+  const [vDoc,setVDoc]=useState(null);
+
+  const handleAuth=u=>{setUser(u);setPage("dashboard");};
+  const startWizard=()=>{setWDoc(null);setWStep(1);setPage("wizard");};
+  const handleChoix=type=>{setWDoc(newDoc(type,user));setWStep(2);};
+  const handleSave=()=>{setDocs(p=>[{...wDoc,id:Math.random()},...p]);setPage("dashboard");setWDoc(null);setWStep(1);};
+  const handleView=doc=>{setVDoc(doc);setPage("view");};
+
+  const StepBar=()=>(
+    <div style={{background:T.white,borderBottom:"1px solid "+T.border,height:56,display:"flex",alignItems:"center",padding:"0 24px",gap:24,position:"sticky",top:0,zIndex:100}}>
+      <Logo/>
+      <div style={{display:"flex",gap:6,marginLeft:16,alignItems:"center"}}>
+        {[{n:1,l:"Type"},{n:2,l:"Remplir"},{n:3,l:"Export"}].map((s,i)=>(
+          <div key={s.n} style={{display:"flex",alignItems:"center",gap:6}}>
+            <div style={{width:24,height:24,borderRadius:12,background:wStep>=s.n?T.accent:T.border,color:wStep>=s.n?"#fff":T.inkLight,fontSize:11,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center"}}>{s.n}</div>
+            <span style={{fontSize:12,color:wStep===s.n?T.ink:T.inkLight,fontWeight:wStep===s.n?600:400}}>{s.l}</span>
+            {i<2&&<span style={{color:T.border,fontSize:14,marginLeft:6}}>›</span>}
+          </div>
+        ))}
+      </div>
+      <div style={{marginLeft:"auto"}}>
+        {user&&<Btn variant="ghost" size="sm" onClick={()=>setPage("dashboard")}>Dashboard</Btn>}
       </div>
     </div>
   );
-}
 
-// ─── ROOT ─────────────────────────────────────────────────────────────
-export default function Root() {
-  const [page, setPage] = useState("landing"); // landing | app
-  return page==="landing"
-    ? <Landing onEnter={()=>setPage("app")} />
-    : <App onBack={()=>setPage("landing")} />;
+  if(page==="landing") return <Landing onSignup={()=>{setAuthMode("signup");setPage("auth");}} onLogin={()=>{setAuthMode("login");setPage("auth");}}/>;
+  if(page==="auth") return <Auth mode={authMode} onAuth={handleAuth} onToggle={()=>setAuthMode(m=>m==="signup"?"login":"signup")}/>;
+  if(page==="wizard") return <div style={{minHeight:"100vh",background:T.bg,fontFamily:"system-ui,-apple-system,sans-serif"}}>
+    <StepBar/>
+    {wStep===1&&<Step1 onChoix={handleChoix}/>}
+    {wStep===2&&wDoc&&<Step2 doc={wDoc} onChange={setWDoc} onNext={()=>setWStep(3)} onBack={()=>setWStep(1)}/>}
+    {wStep===3&&wDoc&&<Step3 doc={wDoc} onBack={()=>setWStep(2)} onSave={handleSave}/>}
+  </div>;
+  if(page==="view"&&vDoc) return <div style={{minHeight:"100vh",background:T.bg,fontFamily:"system-ui,-apple-system,sans-serif"}}>
+    <div style={{background:T.white,borderBottom:"1px solid "+T.border,height:56,display:"flex",alignItems:"center",padding:"0 24px",gap:12,position:"sticky",top:0,zIndex:100}}>
+      <Logo/>
+      <div style={{marginLeft:"auto"}}><Btn size="sm" onClick={()=>setPage("dashboard")}>← Dashboard</Btn></div>
+    </div>
+    <Step3 doc={vDoc} onBack={()=>setPage("dashboard")} onSave={()=>setPage("dashboard")}/>
+  </div>;
+  if(page==="dashboard"&&user) return <Dashboard user={user} docs={docs} onNewDoc={startWizard} onViewDoc={handleView} onLogout={()=>{setUser(null);setDocs([]);setPage("landing");}}/>;
+  return null;
 }
