@@ -286,7 +286,7 @@ function Step2({doc,onChange,onNext,onBack}){
   const fileRef=useRef(null);
   const handleLogo=e=>{const file=e.target.files[0];if(!file)return;const r=new FileReader();r.onload=ev=>onChange({...doc,logo:ev.target.result});r.readAsDataURL(file);};
   return <div style={{maxWidth:960,margin:"0 auto",padding:"32px 24px"}}>
-    <div style={{marginBottom:24,display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:12}}>
+    <div id="idz-print-header" style={{marginBottom:24,display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:12}}>
       <div>
         <div style={{fontSize:11,fontWeight:700,color:T.accent,letterSpacing:2,textTransform:"uppercase",marginBottom:6}}>Étape 2 / 3</div>
         <div style={{display:"flex",alignItems:"center",gap:10}}>
@@ -421,32 +421,34 @@ function Step3({doc,onBack,onSave}){
   const showTVA=doc.tvaActive&&showPrix;
   const ent=doc.entreprise||{};
   const printRef=useRef(null);
+
   const handlePrint=()=>{
-    const content=printRef.current.innerHTML;
-    const win=window.open("","_blank");
-    win.document.write(`<!DOCTYPE html>
-<html><head>
-<meta charset="utf-8"/>
-<title>${doc.numero}</title>
-<style>
-  *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:Georgia,serif;color:#111;background:#fff;padding:0;margin:0}
-  @media print{
-    html,body{width:210mm;margin:0;padding:0}
-    body{padding:16mm 16mm 20mm 16mm}
-    @page{size:A4;margin:0}
-  }
-  @media screen{body{padding:40px;max-width:800px;margin:0 auto}}
-  table{width:100%;border-collapse:collapse}
-  th,td{padding:9px 10px}
-  img{max-width:160px;height:auto}
-</style>
-</head><body>${content}</body></html>`);
-    win.document.close();
-    win.focus();
-    setTimeout(()=>{
-      win.print();
-    },800);
+    // Inject print CSS that hides everything except the document
+    const styleId="idz-print-style";
+    let style=document.getElementById(styleId);
+    if(!style){style=document.createElement("style");style.id=styleId;document.head.appendChild(style);}
+    style.innerHTML=`
+      @media print {
+        body > *:not(#idz-print-root) { display: none !important; }
+        #idz-print-root { display: block !important; position: fixed; top: 0; left: 0; width: 100%; }
+        #idz-print-doc { box-shadow: none !important; border: none !important; border-radius: 0 !important; padding: 16mm !important; }
+        #idz-print-actions { display: none !important; }
+        #idz-print-header { display: none !important; }
+        @page { size: A4; margin: 0; }
+      }
+    `;
+    // Mark the root element
+    const root = document.getElementById("idz-print-root") || (() => {
+      const el = printRef.current;
+      // walk up to find the page wrapper
+      let p = el;
+      while(p && p.parentElement && p.parentElement !== document.body) p = p.parentElement;
+      if(p) p.id = "idz-print-root";
+      return p;
+    })();
+    window.print();
+    // Clean up after print dialog closes
+    setTimeout(()=>{ style.innerHTML=""; }, 2000);
   };
   return <div style={{maxWidth:880,margin:"0 auto",padding:"32px 24px"}}>
     <div style={{marginBottom:24,display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:12}}>
@@ -460,7 +462,7 @@ function Step3({doc,onBack,onSave}){
         <Btn variant="primary" size="sm" onClick={onSave}>✓ Enregistrer au dashboard</Btn>
       </div>
     </div>
-    <div ref={printRef} style={{background:"#fff",border:"1px solid "+T.border,borderRadius:12,padding:48,boxShadow:"0 4px 24px rgba(0,0,0,.07)",fontFamily:"Georgia,serif",color:"#111"}}>
+    <div ref={printRef} id="idz-print-doc" style={{background:"#fff",border:"1px solid "+T.border,borderRadius:12,padding:48,boxShadow:"0 4px 24px rgba(0,0,0,.07)",fontFamily:"Georgia,serif",color:"#111"}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:32}}>
         <div>
           {doc.logo&&<img src={doc.logo} alt="logo" style={{height:56,maxWidth:160,objectFit:"contain",marginBottom:12,display:"block"}}/>}
@@ -538,7 +540,7 @@ function Step3({doc,onBack,onSave}){
       </div>}
       <div style={{marginTop:32,textAlign:"center",fontFamily:"system-ui",fontSize:9,color:"#ccc",letterSpacing:1}}>Document généré via InvoiceDZ · invoicedz.dz</div>
     </div>
-    <div style={{display:"flex",justifyContent:"center",gap:12,marginTop:24}}>
+    <div id="idz-print-actions" style={{display:"flex",justifyContent:"center",gap:12,marginTop:24}}>
       <Btn size="md" onClick={handlePrint} style={{background:"#F0FDF4",color:T.success,border:"1px solid "+T.success+"30"}}>🖨️ Imprimer / Enregistrer en PDF</Btn>
       <Btn variant="primary" size="md" onClick={onSave}>✓ Enregistrer & Dashboard</Btn>
     </div>
