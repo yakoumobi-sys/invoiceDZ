@@ -1,6 +1,42 @@
 "use client";
 import { useState } from "react";
-import { ChevronDown, ArrowRight, Check, TrendingUp, Zap, Lock } from "lucide-react";
+
+// SVG Icons inline - no dependencies
+const ArrowRight = (props) => (
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" {...props}>
+    <path d="M6 12L10 8L6 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
+
+const ChevronDown = (props) => (
+  <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" {...props}>
+    <path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
+
+const Check = (props) => (
+  <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg" {...props}>
+    <path d="M3 9L7 13L15 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
+
+const Zap = (props) => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" {...props}>
+    <path d="M13 2L3 14H12L11 22L21 10H12L13 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+  </svg>
+);
+
+const TrendingUp = (props) => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" {...props}>
+    <path d="M3 21L9 15M15 9L21 3M21 3H12M21 3V12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
+
+const Lock = (props) => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" {...props}>
+    <path d="M12 1C7 1 3 5 3 10V20C3 21.1 3.9 22 5 22H19C20.1 22 21 21.1 21 20V10C21 5 17 1 12 1ZM12 13C10.9 13 10 12.1 10 11C10 9.9 10.9 9 12 9C13.1 9 14 9.9 14 11C14 12.1 13.1 13 12 13Z" stroke="currentColor" strokeWidth="1.5" fill="none"/>
+  </svg>
+);
 
 const COLORS = {
   bg: "#FAFBFC",
@@ -187,7 +223,7 @@ export default function B2BLanding() {
               e.target.style.transform = "none";
             }}
           >
-            Demander une démo <ArrowRight size={16} />
+            Demander une démo <ArrowRight style={{ width: 16, height: 16 }} />
           </button>
           <button
             style={{
@@ -414,8 +450,7 @@ export default function B2BLanding() {
                   }}
                 >
                   <Check
-                    size={18}
-                    style={{ color: COLORS.success, flexShrink: 0 }}
+                    style={{ color: COLORS.success, flexShrink: 0, width: 18, height: 18 }}
                   />
                   {item}
                 </div>
@@ -488,7 +523,7 @@ export default function B2BLanding() {
                       color: COLORS.primary,
                     }}
                   >
-                    <Icon size={24} />
+                    <Icon style={{ width: 24, height: 24 }} />
                   </div>
                   <h3
                     style={{
@@ -713,7 +748,7 @@ export default function B2BLanding() {
                         : COLORS.textMid,
                     }}
                   >
-                    <Check size={16} style={{ flexShrink: 0, marginTop: 2 }} />
+                    <Check style={{ flexShrink: 0, marginTop: 2, width: 16, height: 16 }} />
                     {f}
                   </div>
                 ))}
@@ -801,7 +836,6 @@ export default function B2BLanding() {
               >
                 {faq.q}
                 <ChevronDown
-                  size={20}
                   style={{
                     color: COLORS.textLight,
                     flexShrink: 0,
@@ -809,6 +843,8 @@ export default function B2BLanding() {
                     transform: faqOpen === i ? "rotate(180deg)" : "none",
                     marginLeft: 12,
                     marginTop: 2,
+                    width: 20,
+                    height: 20,
                   }}
                 />
               </button>
