@@ -5,13 +5,18 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "test": "node test/facture.test.mjs && node test/app.test.mjs"
   },
   "dependencies": {
+    "@supabase/ssr": "^0.3.0",
+    "@supabase/supabase-js": "^2.43.0",
     "next": "14.2.3",
     "react": "^18",
-    "react-dom": "^18",
-    "@supabase/supabase-js": "^2.43.0",
-    "@supabase/ssr": "^0.3.0"
+    "react-dom": "^18"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.1",
+    "jsdom": "^29.1.1"
   }
 }
