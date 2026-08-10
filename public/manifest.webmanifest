@@ -1,0 +1,13 @@
+{
+  "name": "invoicedz — Factures, devis et bons en ligne",
+  "short_name": "invoicedz",
+  "description": "Factures, devis, proformas et bons conformes pour l'Algérie. 100% gratuit et illimité.",
+  "start_url": "/nouveau",
+  "display": "standalone",
+  "background_color": "#F4F7F3",
+  "theme_color": "#1C4A3D",
+  "lang": "fr",
+  "icons": [
+    { "src": "/icon.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
