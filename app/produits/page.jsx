@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { T, UNITES } from "../../lib/constants";
 import { fmtDA } from "../../lib/facture.mjs";
 import { getUser, listProduits, saveProduit, deleteProduit, listDocs } from "../../lib/db";
+import { csvProduits, downloadTextFile } from "../../lib/partage";
 import AppNav from "../../components/nav";
 import { Btn, Card, Spinner, Empty, Input, Sel, Lbl, Modal, Menu, Toast, useToast } from "../../components/ui";
 
@@ -71,6 +72,11 @@ export default function ProduitsPage() {
     toast("Produit supprimé");
   };
 
+  const exportCsv = () => {
+    if (produits.length === 0) { toast("Aucun produit à exporter"); return; }
+    downloadTextFile(`invoicedz-produits-${new Date().toISOString().slice(0, 10)}.csv`, csvProduits(produits));
+  };
+
   if (loading) return <div style={{ minHeight: "100vh", background: T.bg, display: "flex", alignItems: "center", justifyContent: "center" }}><Spinner /></div>;
 
   return (
@@ -82,7 +88,10 @@ export default function ProduitsPage() {
             <h1 style={{ fontSize: 22, fontWeight: 900, letterSpacing: -0.5, margin: "0 0 4px" }}>Produits & services</h1>
             <div style={{ color: T.inkLight, fontSize: 13.5 }}>Votre catalogue : désignation, prix, unité et TVA se remplissent seuls dans vos documents.</div>
           </div>
-          <Btn variant="primary" size="sm" onClick={() => setEdit({ ...VIDE })}>+ Ajouter un produit</Btn>
+          <div style={{ display: "flex", gap: 8 }}>
+            <Btn size="sm" onClick={exportCsv}>⇩ Exporter CSV</Btn>
+            <Btn variant="primary" size="sm" onClick={() => setEdit({ ...VIDE })}>+ Ajouter un produit</Btn>
+          </div>
         </div>
 
         <div style={{ width: 260, marginBottom: 14 }}>

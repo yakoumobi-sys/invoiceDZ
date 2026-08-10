@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test": "node test/facture.test.mjs && node test/app.test.mjs"
+    "test": "node test/facture.test.mjs && node test/app.test.mjs && node test/partage.test.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.3.0",

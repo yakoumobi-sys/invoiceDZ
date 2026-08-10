@@ -2,8 +2,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { T, DOC_TYPES, STATUTS, MODES_PAIEMENT } from "../../lib/constants";
-import { calcTotaux, fmtDA, nextNumero, convertDoc, CONVERSIONS, statutApresPaiement } from "../../lib/facture.mjs";
+import { calcTotaux, fmtDA, nextNumero, convertDoc, CONVERSIONS, statutApresPaiement, isOverdue } from "../../lib/facture.mjs";
 import { getUser, listDocs, saveDoc, deleteDoc, countLocalDocs, importLocalDocs } from "../../lib/db";
+import { waLink, mailLink, messageDocument, csvDocs, downloadTextFile } from "../../lib/partage";
 import AppNav from "../../components/nav";
 import { Btn, Badge, Card, StatCard, Spinner, Empty, Menu, Modal, Input, Sel, Lbl, Toast, useToast } from "../../components/ui";
 
@@ -83,19 +84,37 @@ export default function Dashboard() {
   });
 
   const stats = useMemo(() => {
-    let ca = 0, paye = 0, attente = 0;
+    let ca = 0, paye = 0, attente = 0, retard = 0;
     for (const d of docs) {
       if (d.type === "FACTURE") {
         const t = calcTotaux(d);
         ca += t.net;
         paye += d.statut === "PAYE" ? t.net : Math.min(t.paye, t.net);
+        if (isOverdue(d)) retard += Math.max(0, t.solde);
       }
       if (["ENVOYE", "PARTIEL", "EN_ATTENTE"].includes(d.statut) && d.type !== "BON_LIVRAISON") {
         attente += Math.max(0, calcTotaux(d).solde);
       }
     }
-    return { ca, paye, attente };
+    return { ca, paye, attente, retard };
   }, [docs]);
+
+  const exportCsv = () => {
+    if (filtered.length === 0) { toast("Aucun document à exporter"); return; }
+    downloadTextFile(`invoicedz-documents-${new Date().toISOString().slice(0, 10)}.csv`, csvDocs(filtered));
+  };
+
+  const envoyerWa = (d) => {
+    const link = waLink(d.client?.telephone, messageDocument(d).body);
+    if (!link) { toast("Aucun numéro de téléphone pour ce client"); return; }
+    window.open(link, "_blank", "noopener,noreferrer");
+  };
+  const envoyerEmail = (d) => {
+    const { subject, body } = messageDocument(d);
+    const link = mailLink(d.client?.email, subject, body);
+    if (!link) { toast("Aucun email pour ce client"); return; }
+    window.location.href = link;
+  };
 
   const duplicate = async (d) => {
     const copy = JSON.parse(JSON.stringify(d));
@@ -181,6 +200,7 @@ export default function Dashboard() {
           <StatCard label="CA facturé" value={fmtDA(stats.ca)} color={T.accent} icon="🧾" />
           <StatCard label="Encaissé" value={fmtDA(stats.paye)} color={T.success} icon="✅" />
           <StatCard label="En attente" value={fmtDA(stats.attente)} color={T.warning} icon="⏳" />
+          <StatCard label="En retard" value={fmtDA(stats.retard)} color={stats.retard > 0 ? T.danger : T.inkLight} icon="⏰" />
           <StatCard label="Documents" value={docs.length} icon="📄" />
         </div>
 
@@ -195,7 +215,10 @@ export default function Dashboard() {
           <div style={{ width: 160 }}>
             <Sel value={fStatut} onChange={setFStatut} options={[{ value: "ALL", label: "Tous les statuts" }, ...Object.entries(STATUTS).map(([k, v]) => ({ value: k, label: v.label }))]} />
           </div>
-          <span style={{ marginLeft: "auto" }}><Btn variant="primary" size="sm" onClick={() => router.push("/nouveau")}>+ Nouveau document</Btn></span>
+          <span style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+            <Btn size="sm" onClick={exportCsv}>⇩ Exporter CSV</Btn>
+            <Btn variant="primary" size="sm" onClick={() => router.push("/nouveau")}>+ Nouveau document</Btn>
+          </span>
         </div>
 
         {/* Liste */}
@@ -210,6 +233,7 @@ export default function Dashboard() {
               const t = calcTotaux(d);
               const showPrix = d.type !== "BON_LIVRAISON";
               const conv = CONVERSIONS[d.type] || [];
+              const retard = isOverdue(d);
               return (
                 <Card key={d.id} style={{ padding: "13px 16px", display: "flex", alignItems: "center", gap: 13, cursor: "pointer", transition: "border-color .13s, box-shadow .13s" }}
                   onClick={() => router.push("/document/" + d.id)}
@@ -221,6 +245,7 @@ export default function Dashboard() {
                       <span style={{ fontSize: 10, fontWeight: 800, color: ti.color, textTransform: "uppercase", letterSpacing: 0.5 }}>{ti.label}</span>
                       <span style={{ fontWeight: 800, fontSize: 14 }}>{d.numero}</span>
                       <Badge label={si.label} color={si.color} />
+                      {retard && <Badge label="⏰ En retard" color={T.danger} />}
                       {d.reference && <span style={{ fontSize: 11, color: T.inkLight }} className="hide-sm">← {d.reference}</span>}
                     </div>
                     <div style={{ color: T.inkLight, fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -240,6 +265,9 @@ export default function Dashboard() {
                       { icon: "📑", label: "Dupliquer", onClick: () => duplicate(d) },
                       ...(showPrix && d.statut !== "PAYE" ? [{ icon: "💰", label: "Enregistrer un paiement", onClick: () => openPay(d) }] : []),
                       ...(conv.length ? ["—", ...conv.map((c) => ({ icon: "🔄", label: "→ " + DOC_TYPES[c].label, onClick: () => convert(d, c) }))] : []),
+                      "—",
+                      { icon: "💬", label: "Envoyer par WhatsApp", onClick: () => envoyerWa(d) },
+                      { icon: "✉️", label: "Envoyer par email", onClick: () => envoyerEmail(d) },
                       "—",
                       { icon: "🗑", label: "Supprimer", danger: true, onClick: () => remove(d) },
                     ]} />

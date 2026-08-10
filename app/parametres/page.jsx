@@ -5,7 +5,20 @@ import { getUser, getProfil, saveProfil, cloudTablesOk, countLocalDocs, importLo
 import AppNav from "../../components/nav";
 import { Btn, Card, Spinner, Input, Sel, Lbl, Toggle, Toast, useToast } from "../../components/ui";
 
-const SQL = `create table if not exists public.clients (
+const SQL = `create table if not exists public.documents (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null default auth.uid(),
+  type text not null,
+  numero text, statut text, date date,
+  data jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now()
+);
+alter table public.documents enable row level security;
+drop policy if exists "documents_own" on public.documents;
+create policy "documents_own" on public.documents
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+create table if not exists public.clients (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null default auth.uid(),
   nom text not null,
@@ -29,11 +42,6 @@ create table if not exists public.produits (
 alter table public.produits enable row level security;
 drop policy if exists "produits_own" on public.produits;
 create policy "produits_own" on public.produits
-  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
-
-alter table public.documents enable row level security;
-drop policy if exists "documents_own" on public.documents;
-create policy "documents_own" on public.documents
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);`;
 
 const resizeImage = (file, maxW = 420) =>
@@ -189,12 +197,12 @@ export default function ParametresPage() {
           )}
         </Card>
 
-        {/* Synchronisation cloud clients/produits */}
+        {/* Synchronisation cloud documents/clients/produits */}
         {user && !cloudOk && (
           <Card style={{ borderColor: "#F1DFBB", background: "#FFFDF6" }}>
-            <div style={{ fontSize: 11, fontWeight: 800, color: T.warning, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 10 }}>Synchronisation cloud (facultatif)</div>
+            <div style={{ fontSize: 11, fontWeight: 800, color: T.warning, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 10 }}>Synchronisation cloud</div>
             <div style={{ fontSize: 13.5, color: T.inkMid, lineHeight: 1.7, marginBottom: 12 }}>
-              Vos <b>clients et produits</b> sont pour l'instant enregistrés sur cet appareil. Pour les synchroniser dans le cloud :
+              Vos <b>documents, clients et produits</b> sont pour l'instant enregistrés sur cet appareil et ne se retrouvent pas sur vos autres appareils. Pour activer la synchronisation dans le cloud :
               ouvrez <b>Supabase → SQL Editor</b>, collez ce script, cliquez <b>Run</b>, puis revenez ici et cliquez « Réessayer ».
             </div>
             <pre style={{ background: "#12362B", color: "#CFE8D2", borderRadius: 10, padding: 14, fontSize: 10.5, lineHeight: 1.55, overflowX: "auto", maxHeight: 220 }}>{SQL}</pre>
