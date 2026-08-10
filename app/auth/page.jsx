@@ -1,391 +1,239 @@
 "use client";
 import { Suspense, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import { supabase } from "../../lib/supabase";
+import { T } from "../../lib/constants";
+import { Btn, Input, Lbl, Logo } from "../../components/ui";
 
-const COLORS = {
-  bg: "#F4F7F3",
-  white: "#FFFFFF",
-  primary: "#1C4A3D",
-  primaryLight: "#E9F2EA",
-  text: "#13251E",
-  textMid: "#6B7280",
-  textLight: "#9CA3AF",
-  border: "#E0E7DE",
-  error: "#EF4444",
-  success: "#2E8B33",
-};
+/* Traduit les erreurs Supabase les plus courantes en français */
+function traduireErreur(msg = "") {
+  const m = msg.toLowerCase();
+  if (m.includes("invalid login credentials")) return "Email ou mot de passe incorrect.";
+  if (m.includes("user already registered") || m.includes("already registered")) return "Un compte existe déjà avec cet email. Connectez-vous plutôt.";
+  if (m.includes("email not confirmed")) return "Confirmez votre email avant de vous connecter (lien envoyé à l'inscription).";
+  if (m.includes("password should be at least") || m.includes("at least 6")) return "Le mot de passe doit contenir au moins 6 caractères.";
+  if (m.includes("unable to validate email") || m.includes("invalid email")) return "Adresse email invalide.";
+  if (m.includes("rate limit") || m.includes("too many")) return "Trop de tentatives, réessayez dans quelques minutes.";
+  if (m.includes("network") || m.includes("failed to fetch") || m.includes("load failed")) return "Problème de connexion réseau. Vérifiez votre connexion et réessayez.";
+  return msg || "Une erreur est survenue. Réessayez.";
+}
 
-// Composant interne qui utilise useSearchParams
+const GoogleIcon = () => (
+  <svg width="17" height="17" viewBox="0 0 18 18">
+    <path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.9c1.7-1.56 2.7-3.87 2.7-6.62z" />
+    <path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.9-2.26c-.8.54-1.84.86-3.06.86-2.35 0-4.34-1.59-5.05-3.72H.95v2.33A9 9 0 0 0 9 18z" />
+    <path fill="#FBBC05" d="M3.95 10.7A5.4 5.4 0 0 1 3.68 9c0-.59.1-1.17.27-1.7V4.96H.95A9 9 0 0 0 0 9c0 1.45.35 2.83.95 4.04l3-2.33z" />
+    <path fill="#EA4335" d="M9 3.58c1.32 0 2.5.46 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0A9 9 0 0 0 .95 4.96l3 2.33C4.66 5.17 6.65 3.58 9 3.58z" />
+  </svg>
+);
+
 function AuthContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const mode = searchParams.get("mode") || "login";
-  const [isSignup, setIsSignup] = useState(mode === "signup");
-  const [formData, setFormData] = useState({
-    email: "",
-    password: "",
-    passwordConfirm: "",
-    company: "",
-  });
+  const initialMode = searchParams.get("mode") === "signup" ? "signup" : "login";
+  const [mode, setMode] = useState(initialMode); // login | signup | forgot
+  const [form, setForm] = useState({ email: "", password: "", passwordConfirm: "", company: "" });
   const [error, setError] = useState(null);
+  const [notice, setNotice] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-  };
+  const set = (k) => (e) => setForm((p) => ({ ...p, [k]: e.target.value }));
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
-    setLoading(true);
+    setNotice(null);
 
+    if (!form.email.trim() || (mode !== "forgot" && !form.password)) {
+      setError("Email et mot de passe requis.");
+      return;
+    }
+
+    setLoading(true);
     try {
-      // Validation
-      if (!formData.email || !formData.password) {
-        setError("Email et mot de passe requis");
+      if (mode === "forgot") {
+        const { error: err } = await supabase.auth.resetPasswordForEmail(form.email.trim(), {
+          redirectTo: typeof window !== "undefined" ? window.location.origin + "/auth" : undefined,
+        });
+        if (err) { setError(traduireErreur(err.message)); return; }
+        setNotice("Si un compte existe pour cet email, un lien de réinitialisation vient d'être envoyé.");
         return;
       }
 
-      if (isSignup) {
-        if (!formData.company) {
-          setError("Nom de l'entreprise requis");
-          return;
+      if (mode === "signup") {
+        if (!form.company.trim()) { setError("Le nom de l'entreprise est requis."); return; }
+        if (form.password.length < 6) { setError("Le mot de passe doit contenir au moins 6 caractères."); return; }
+        if (form.password !== form.passwordConfirm) { setError("Les mots de passe ne correspondent pas."); return; }
+
+        const { data, error: err } = await supabase.auth.signUp({
+          email: form.email.trim(),
+          password: form.password,
+          options: { data: { entreprise: { nom: form.company.trim() } } },
+        });
+        if (err) { setError(traduireErreur(err.message)); return; }
+
+        if (data?.session) {
+          router.push("/dashboard");
+        } else {
+          setNotice("Compte créé ✓ Vérifiez votre boîte mail pour confirmer votre adresse, puis connectez-vous.");
+          setMode("login");
         }
-        if (formData.password !== formData.passwordConfirm) {
-          setError("Les mots de passe ne correspondent pas");
-          return;
-        }
-        // Signup logic here
-        console.log("Signup:", formData);
-      } else {
-        // Login logic here
-        console.log("Login:", formData.email, formData.password);
+        return;
       }
 
-      // Simulé - remplace avec ton auth véritable
-      await new Promise((r) => setTimeout(r, 1000));
+      // login
+      const { error: err } = await supabase.auth.signInWithPassword({
+        email: form.email.trim(),
+        password: form.password,
+      });
+      if (err) { setError(traduireErreur(err.message)); return; }
       router.push("/dashboard");
     } catch (err) {
-      setError(err.message || "Une erreur s'est produite");
+      setError(traduireErreur(err?.message));
     } finally {
       setLoading(false);
     }
   };
 
+  const handleGoogle = async () => {
+    setError(null);
+    setGoogleLoading(true);
+    try {
+      const { error: err } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: { redirectTo: typeof window !== "undefined" ? window.location.origin + "/dashboard" : undefined },
+      });
+      if (err) { setError(traduireErreur(err.message)); setGoogleLoading(false); }
+      // en cas de succès, redirection gérée par Supabase (pas de reset du loading nécessaire)
+    } catch (err) {
+      setError(traduireErreur(err?.message));
+      setGoogleLoading(false);
+    }
+  };
+
+  const titre = mode === "signup" ? "Créer un compte" : mode === "forgot" ? "Mot de passe oublié" : "Se connecter";
+  const sousTitre = mode === "signup"
+    ? "Gratuit, illimité, sans carte bancaire."
+    : mode === "forgot"
+      ? "On vous envoie un lien de réinitialisation."
+      : "Retrouvez vos documents, clients et produits.";
+
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        background: COLORS.bg,
-        padding: "24px",
-      }}
-    >
-      <div
-        style={{
-          width: "100%",
-          maxWidth: 420,
-          background: COLORS.white,
-          borderRadius: 12,
-          border: `1px solid ${COLORS.border}`,
-          padding: 40,
-        }}
-      >
-        {/* Header */}
-        <div style={{ marginBottom: 32 }}>
-          <h1
-            style={{
-              fontSize: 24,
-              fontWeight: 800,
-              marginBottom: 8,
-              color: COLORS.text,
-            }}
-          >
-            {isSignup ? "Créer un compte" : "Se connecter"}
-          </h1>
-          <p style={{ fontSize: 14, color: COLORS.textMid }}>
-            {isSignup
-              ? "Rejoignez nos 500+ utilisateurs"
-              : "Bienvenue à nouveau"}
-          </p>
+    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: T.bg, padding: 24 }}>
+      <div style={{ width: "100%", maxWidth: 420, background: T.white, borderRadius: 15, border: "1px solid " + T.border, padding: 36, boxShadow: "0 18px 50px rgba(19,37,30,.08)" }}>
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: 22 }}>
+          <span style={{ cursor: "pointer" }} onClick={() => router.push("/")}><Logo size={28} /></span>
         </div>
 
-        {/* Error message */}
+        <div style={{ marginBottom: 26, textAlign: "center" }}>
+          <h1 style={{ fontSize: 22, fontWeight: 900, letterSpacing: -0.4, margin: "0 0 6px", color: T.ink }}>{titre}</h1>
+          <p style={{ fontSize: 13.5, color: T.inkLight, margin: 0 }}>{sousTitre}</p>
+        </div>
+
         {error && (
-          <div
-            style={{
-              background: "#FEE2E2",
-              border: `1px solid ${COLORS.error}22`,
-              borderRadius: 8,
-              padding: "12px 16px",
-              marginBottom: 20,
-              fontSize: 13,
-              color: "#991B1B",
-            }}
-          >
+          <div style={{ background: "#FDEEEC", border: "1px solid #F5C9C4", borderRadius: 9, padding: "11px 14px", marginBottom: 18, fontSize: 13, color: T.danger }}>
             {error}
           </div>
         )}
+        {notice && (
+          <div style={{ background: T.leafBg, border: "1px solid #D6ECC8", borderRadius: 9, padding: "11px 14px", marginBottom: 18, fontSize: 13, color: T.leafDark }}>
+            {notice}
+          </div>
+        )}
 
-        {/* Form */}
         <form onSubmit={handleSubmit}>
-          {isSignup && (
-            <div style={{ marginBottom: 16 }}>
-              <label
-                style={{
-                  display: "block",
-                  fontSize: 13,
-                  fontWeight: 600,
-                  marginBottom: 6,
-                  color: COLORS.text,
-                }}
-              >
-                Nom de l'entreprise
-              </label>
-              <input
-                type="text"
-                name="company"
-                value={formData.company}
-                onChange={handleChange}
-                placeholder="Caractère Store"
-                style={{
-                  width: "100%",
-                  padding: "10px 12px",
-                  borderRadius: 8,
-                  border: `1px solid ${COLORS.border}`,
-                  fontSize: 14,
-                  fontFamily: "inherit",
-                  boxSizing: "border-box",
-                  transition: "border-color .2s",
-                }}
-                onFocus={(e) => (e.target.style.borderColor = COLORS.primary)}
-                onBlur={(e) => (e.target.style.borderColor = COLORS.border)}
-              />
+          {mode === "signup" && (
+            <div style={{ marginBottom: 14 }}>
+              <Lbl>Nom de l'entreprise</Lbl>
+              <Input value={form.company} onChange={(v) => setForm((p) => ({ ...p, company: v }))} placeholder="Djimmy Prints" />
             </div>
           )}
 
-          <div style={{ marginBottom: 16 }}>
-            <label
-              style={{
-                display: "block",
-                fontSize: 13,
-                fontWeight: 600,
-                marginBottom: 6,
-                color: COLORS.text,
-              }}
-            >
-              Email
-            </label>
-            <input
-              type="email"
-              name="email"
-              value={formData.email}
-              onChange={handleChange}
-              placeholder="toi@example.com"
-              style={{
-                width: "100%",
-                padding: "10px 12px",
-                borderRadius: 8,
-                border: `1px solid ${COLORS.border}`,
-                fontSize: 14,
-                fontFamily: "inherit",
-                boxSizing: "border-box",
-                transition: "border-color .2s",
-              }}
-              onFocus={(e) => (e.target.style.borderColor = COLORS.primary)}
-              onBlur={(e) => (e.target.style.borderColor = COLORS.border)}
-            />
+          <div style={{ marginBottom: 14 }}>
+            <Lbl>Email</Lbl>
+            <input type="email" value={form.email} onChange={set("email")} placeholder="vous@email.dz" required autoComplete="email"
+              style={{ background: T.white, border: "1px solid " + T.border, borderRadius: 9, color: T.ink, padding: "10px 13px", fontSize: 14, width: "100%", boxSizing: "border-box", fontFamily: "inherit", outline: "none" }}
+              onFocus={(e) => (e.target.style.borderColor = T.leafDark)} onBlur={(e) => (e.target.style.borderColor = T.border)} />
           </div>
 
-          <div style={{ marginBottom: isSignup ? 16 : 24 }}>
-            <label
-              style={{
-                display: "block",
-                fontSize: 13,
-                fontWeight: 600,
-                marginBottom: 6,
-                color: COLORS.text,
-              }}
-            >
-              Mot de passe
-            </label>
-            <input
-              type="password"
-              name="password"
-              value={formData.password}
-              onChange={handleChange}
-              placeholder="••••••••"
-              style={{
-                width: "100%",
-                padding: "10px 12px",
-                borderRadius: 8,
-                border: `1px solid ${COLORS.border}`,
-                fontSize: 14,
-                fontFamily: "inherit",
-                boxSizing: "border-box",
-                transition: "border-color .2s",
-              }}
-              onFocus={(e) => (e.target.style.borderColor = COLORS.primary)}
-              onBlur={(e) => (e.target.style.borderColor = COLORS.border)}
-            />
-          </div>
-
-          {isSignup && (
-            <div style={{ marginBottom: 24 }}>
-              <label
-                style={{
-                  display: "block",
-                  fontSize: 13,
-                  fontWeight: 600,
-                  marginBottom: 6,
-                  color: COLORS.text,
-                }}
-              >
-                Confirmer le mot de passe
-              </label>
-              <input
-                type="password"
-                name="passwordConfirm"
-                value={formData.passwordConfirm}
-                onChange={handleChange}
-                placeholder="••••••••"
-                style={{
-                  width: "100%",
-                  padding: "10px 12px",
-                  borderRadius: 8,
-                  border: `1px solid ${COLORS.border}`,
-                  fontSize: 14,
-                  fontFamily: "inherit",
-                  boxSizing: "border-box",
-                  transition: "border-color .2s",
-                }}
-                onFocus={(e) => (e.target.style.borderColor = COLORS.primary)}
-                onBlur={(e) => (e.target.style.borderColor = COLORS.border)}
-              />
+          {mode !== "forgot" && (
+            <div style={{ marginBottom: mode === "signup" ? 14 : 8 }}>
+              <Lbl>Mot de passe</Lbl>
+              <input type="password" value={form.password} onChange={set("password")} placeholder="••••••••" required
+                autoComplete={mode === "signup" ? "new-password" : "current-password"}
+                style={{ background: T.white, border: "1px solid " + T.border, borderRadius: 9, color: T.ink, padding: "10px 13px", fontSize: 14, width: "100%", boxSizing: "border-box", fontFamily: "inherit", outline: "none" }}
+                onFocus={(e) => (e.target.style.borderColor = T.leafDark)} onBlur={(e) => (e.target.style.borderColor = T.border)} />
             </div>
           )}
 
-          <button
-            type="submit"
-            disabled={loading}
-            style={{
-              width: "100%",
-              background: COLORS.primary,
-              color: COLORS.white,
-              border: "none",
-              borderRadius: 8,
-              padding: "12px 16px",
-              fontSize: 14,
-              fontWeight: 600,
-              cursor: loading ? "not-allowed" : "pointer",
-              transition: "background .2s",
-              opacity: loading ? 0.7 : 1,
-            }}
-            onMouseEnter={(e) =>
-              !loading && (e.target.style.background = "#0052CC")
-            }
-            onMouseLeave={(e) =>
-              !loading && (e.target.style.background = COLORS.primary)
-            }
-          >
-            {loading
-              ? "Chargement..."
-              : isSignup
-              ? "Créer un compte"
-              : "Se connecter"}
-          </button>
+          {mode === "login" && (
+            <div style={{ textAlign: "right", marginBottom: 18 }}>
+              <button type="button" onClick={() => { setMode("forgot"); setError(null); setNotice(null); }}
+                style={{ background: "none", border: "none", color: T.leafDark, fontSize: 12.5, fontWeight: 600, cursor: "pointer", padding: 0, fontFamily: "inherit" }}>
+                Mot de passe oublié ?
+              </button>
+            </div>
+          )}
+
+          {mode === "signup" && (
+            <div style={{ marginBottom: 22 }}>
+              <Lbl>Confirmer le mot de passe</Lbl>
+              <input type="password" value={form.passwordConfirm} onChange={set("passwordConfirm")} placeholder="••••••••" required autoComplete="new-password"
+                style={{ background: T.white, border: "1px solid " + T.border, borderRadius: 9, color: T.ink, padding: "10px 13px", fontSize: 14, width: "100%", boxSizing: "border-box", fontFamily: "inherit", outline: "none" }}
+                onFocus={(e) => (e.target.style.borderColor = T.leafDark)} onBlur={(e) => (e.target.style.borderColor = T.border)} />
+            </div>
+          )}
+
+          <Btn type="submit" variant="primary" size="lg" disabled={loading} style={{ width: "100%" }}>
+            {loading ? "Un instant…" : mode === "signup" ? "Créer mon compte" : mode === "forgot" ? "Envoyer le lien" : "Se connecter"}
+          </Btn>
         </form>
 
-        {/* Divider */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 12,
-            margin: "24px 0",
-          }}
-        >
-          <div style={{ flex: 1, height: 1, background: COLORS.border }} />
-          <span style={{ fontSize: 12, color: COLORS.textLight }}>ou</span>
-          <div style={{ flex: 1, height: 1, background: COLORS.border }} />
+        {mode !== "forgot" && (
+          <>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, margin: "22px 0" }}>
+              <div style={{ flex: 1, height: 1, background: T.border }} />
+              <span style={{ fontSize: 12, color: T.inkLight }}>ou</span>
+              <div style={{ flex: 1, height: 1, background: T.border }} />
+            </div>
+
+            <Btn type="button" onClick={handleGoogle} disabled={googleLoading} style={{ width: "100%" }}>
+              <GoogleIcon /> {googleLoading ? "Un instant…" : "Continuer avec Google"}
+            </Btn>
+          </>
+        )}
+
+        <div style={{ textAlign: "center", fontSize: 13, color: T.inkLight, marginTop: 20 }}>
+          {mode === "forgot" ? (
+            <button type="button" onClick={() => { setMode("login"); setError(null); setNotice(null); }}
+              style={{ background: "none", border: "none", color: T.leafDark, cursor: "pointer", fontWeight: 700, fontSize: 13, fontFamily: "inherit" }}>
+              ← Retour à la connexion
+            </button>
+          ) : (
+            <>
+              {mode === "signup" ? "Vous avez déjà un compte ? " : "Pas encore de compte ? "}
+              <button type="button" onClick={() => { setMode(mode === "signup" ? "login" : "signup"); setError(null); setNotice(null); }}
+                style={{ background: "none", border: "none", color: T.leafDark, cursor: "pointer", fontWeight: 700, fontSize: 13, fontFamily: "inherit" }}>
+                {mode === "signup" ? "Se connecter" : "Créer un compte"}
+              </button>
+            </>
+          )}
         </div>
 
-        {/* Social login (placeholder) */}
-        <button
-          type="button"
-          style={{
-            width: "100%",
-            background: COLORS.white,
-            color: COLORS.text,
-            border: `1px solid ${COLORS.border}`,
-            borderRadius: 8,
-            padding: "10px 16px",
-            fontSize: 14,
-            fontWeight: 600,
-            cursor: "pointer",
-            transition: "background .2s",
-            marginBottom: 16,
-          }}
-          onMouseEnter={(e) => (e.target.style.background = COLORS.bg)}
-          onMouseLeave={(e) => (e.target.style.background = COLORS.white)}
-        >
-          Continuer avec Google
-        </button>
-
-        {/* Toggle signup/login */}
-        <div style={{ textAlign: "center", fontSize: 13, color: COLORS.textMid }}>
-          {isSignup ? "Tu as un compte ? " : "Pas de compte ? "}
-          <button
-            type="button"
-            onClick={() => setIsSignup(!isSignup)}
-            style={{
-              background: "none",
-              border: "none",
-              color: COLORS.primary,
-              cursor: "pointer",
-              fontWeight: 600,
-              textDecoration: "underline",
-              fontSize: 13,
-            }}
-          >
-            {isSignup ? "Se connecter" : "Créer un compte"}
-          </button>
-        </div>
-
-        {/* Mode invité */}
-        <div style={{ textAlign: "center", marginTop: 14, paddingTop: 14, borderTop: "1px solid " + COLORS.border }}>
-          <a href="/nouveau" style={{ fontSize: 13, color: COLORS.textMid, textDecoration: "none" }}>
-            Ou <span style={{ color: COLORS.primary, fontWeight: 600, textDecoration: "underline" }}>continuer sans compte</span> — vos documents restent sur cet appareil
-          </a>
+        <div style={{ textAlign: "center", marginTop: 16, paddingTop: 16, borderTop: "1px solid " + T.border }}>
+          <span style={{ fontSize: 12.5, color: T.inkLight, cursor: "pointer" }} onClick={() => router.push("/nouveau")}>
+            Ou <span style={{ color: T.leafDark, fontWeight: 700, textDecoration: "underline" }}>continuer sans compte</span> — vos documents restent sur cet appareil
+          </span>
         </div>
       </div>
     </div>
   );
 }
 
-// Page wrapper avec Suspense boundary
 export default function AuthPage() {
   return (
-    <Suspense
-      fallback={
-        <div
-          style={{
-            minHeight: "100vh",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            background: COLORS.bg,
-          }}
-        >
-          <div style={{ fontSize: 14, color: COLORS.textLight }}>
-            Chargement...
-          </div>
-        </div>
-      }
-    >
+    <Suspense fallback={<div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: T.bg, color: T.inkLight, fontSize: 14 }}>Chargement…</div>}>
       <AuthContent />
     </Suspense>
   );
