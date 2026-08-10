@@ -1,4 +1,4 @@
-import { enLettres, montantEnLettres, timbreFiscal, calcTotaux, nextNumero, convertDoc, statutApresPaiement, arreteSentence } from "../lib/facture.mjs";
+import { enLettres, montantEnLettres, timbreFiscal, calcTotaux, nextNumero, convertDoc, statutApresPaiement, arreteSentence, isOverdue } from "../lib/facture.mjs";
 
 let n = 0, bad = 0;
 const eq = (got, want, label) => {
@@ -110,6 +110,16 @@ eq(devis.statut, "ACCEPTE", "source intacte");
 eq(statutApresPaiement({ ...docBase, paiements: [{ montant: 2380 }] }), "PAYE", "payé intégralement");
 eq(statutApresPaiement({ ...docBase, paiements: [{ montant: 100 }] }), "PARTIEL", "paiement partiel");
 eq(statutApresPaiement({ ...docBase, statut: "ENVOYE", paiements: [] }), "ENVOYE", "sans paiement inchangé");
+
+/* ---- retard (isOverdue) ---- */
+const factureImpayee = { type: "FACTURE", statut: "ENVOYE", dateEcheance: "2026-01-01", paiements: [],
+  lignes: [{ quantite: 1, prixUnitaire: 1000, tva: 19 }] };
+eq(isOverdue(factureImpayee, "2026-07-01"), true, "en retard : échéance dépassée, solde dû");
+eq(isOverdue({ ...factureImpayee, dateEcheance: "2026-12-01" }, "2026-07-01"), false, "pas en retard : échéance future");
+eq(isOverdue({ ...factureImpayee, statut: "PAYE" }, "2026-07-01"), false, "pas en retard : déjà payée");
+eq(isOverdue({ ...factureImpayee, dateEcheance: "" }, "2026-07-01"), false, "pas en retard : sans échéance");
+eq(isOverdue({ ...factureImpayee, type: "BON_LIVRAISON" }, "2026-07-01"), false, "pas en retard : bon de livraison");
+eq(isOverdue({ ...factureImpayee, paiements: [{ montant: 1190 }] }, "2026-07-01"), false, "pas en retard : soldée par un paiement");
 
 console.log(bad ? `\n${bad}/${n} FAILED` : `\n${n} tests passed`);
 process.exit(bad ? 1 : 0);

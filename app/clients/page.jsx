@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { T, DOC_TYPES, STATUTS } from "../../lib/constants";
 import { calcTotaux, fmtDA } from "../../lib/facture.mjs";
 import { getUser, listClients, saveClient, deleteClient, listDocs } from "../../lib/db";
+import { waLink, csvClients, downloadTextFile } from "../../lib/partage";
 import AppNav from "../../components/nav";
 import { Btn, Badge, Card, Spinner, Empty, Input, Textarea, Lbl, Modal, Menu, Toast, useToast } from "../../components/ui";
 
@@ -72,6 +73,17 @@ export default function ClientsPage() {
     toast("Client supprimé");
   };
 
+  const exportCsv = () => {
+    if (clients.length === 0) { toast("Aucun client à exporter"); return; }
+    downloadTextFile(`invoicedz-clients-${new Date().toISOString().slice(0, 10)}.csv`, csvClients(clients));
+  };
+
+  const contacterWa = (c) => {
+    const link = waLink(c.telephone, `Bonjour ${c.nom || ""},`);
+    if (!link) { toast("Aucun numéro de téléphone pour ce client"); return; }
+    window.open(link, "_blank", "noopener,noreferrer");
+  };
+
   if (loading) return <div style={{ minHeight: "100vh", background: T.bg, display: "flex", alignItems: "center", justifyContent: "center" }}><Spinner /></div>;
 
   const dStats = detail ? statsFor[detail.id] || { docs: [], ca: 0, impaye: 0 } : null;
@@ -85,7 +97,10 @@ export default function ClientsPage() {
             <h1 style={{ fontSize: 22, fontWeight: 900, letterSpacing: -0.5, margin: "0 0 4px" }}>Clients</h1>
             <div style={{ color: T.inkLight, fontSize: 13.5 }}>Votre répertoire : coordonnées, historique et impayés par client.</div>
           </div>
-          <Btn variant="primary" size="sm" onClick={() => setEdit({ ...VIDE })}>+ Ajouter un client</Btn>
+          <div style={{ display: "flex", gap: 8 }}>
+            <Btn size="sm" onClick={exportCsv}>⇩ Exporter CSV</Btn>
+            <Btn variant="primary" size="sm" onClick={() => setEdit({ ...VIDE })}>+ Ajouter un client</Btn>
+          </div>
         </div>
 
         <div style={{ width: 260, marginBottom: 14 }}>
@@ -120,6 +135,7 @@ export default function ClientsPage() {
                     <span onClick={(e) => e.stopPropagation()}>
                       <Menu items={[
                         { icon: "🧾", label: "Nouveau document", onClick: () => router.push("/nouveau") },
+                        { icon: "💬", label: "Contacter par WhatsApp", onClick: () => contacterWa(c) },
                         { icon: "✏️", label: "Modifier", onClick: () => setEdit({ ...VIDE, ...c }) },
                         "—",
                         { icon: "🗑", label: "Supprimer", danger: true, onClick: () => remove(c) },

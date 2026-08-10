@@ -2,8 +2,9 @@
 import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { T, DOC_TYPES, STATUTS, STATUTS_PAR_TYPE, MODES_PAIEMENT } from "../../../lib/constants";
-import { calcTotaux, fmtDA, nextNumero, convertDoc, CONVERSIONS, statutApresPaiement } from "../../../lib/facture.mjs";
+import { calcTotaux, fmtDA, nextNumero, convertDoc, CONVERSIONS, statutApresPaiement, isOverdue } from "../../../lib/facture.mjs";
 import { getUser, getDoc, listDocs, saveDoc, deleteDoc } from "../../../lib/db";
+import { waLink, mailLink, messageDocument } from "../../../lib/partage";
 import { Btn, Badge, Logo, Spinner, Menu, Modal, Input, Sel, Lbl, Toast, useToast } from "../../../components/ui";
 import DocPreview, { printDoc } from "../../../components/DocPreview";
 
@@ -61,6 +62,18 @@ export default function DocumentPage() {
     router.push("/dashboard");
   };
 
+  const envoyerWa = () => {
+    const link = waLink(doc.client?.telephone, messageDocument(doc).body);
+    if (!link) { toast("Aucun numéro de téléphone pour ce client"); return; }
+    window.open(link, "_blank", "noopener,noreferrer");
+  };
+  const envoyerEmail = () => {
+    const { subject, body } = messageDocument(doc);
+    const link = mailLink(doc.client?.email, subject, body);
+    if (!link) { toast("Aucun email pour ce client"); return; }
+    window.location.href = link;
+  };
+
   const openPay = () => {
     const t = calcTotaux(doc);
     setPay({ montant: Math.max(0, t.solde).toFixed(2), date: new Date().toISOString().split("T")[0], mode: doc.modePaiement || "ESPECES" });
@@ -92,6 +105,7 @@ export default function DocumentPage() {
   const t = calcTotaux(doc);
   const showPrix = doc.type !== "BON_LIVRAISON";
   const conv = CONVERSIONS[doc.type] || [];
+  const retard = isOverdue(doc);
 
   return (
     <div style={{ minHeight: "100vh", background: T.bg }}>
@@ -101,6 +115,7 @@ export default function DocumentPage() {
           <span style={{ color: T.border }}>›</span>
           <span style={{ fontWeight: 700, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{doc.numero}</span>
           <Badge label={si.label} color={si.color} />
+          {retard && <Badge label="⏰ En retard" color={T.danger} />}
           <div style={{ marginLeft: "auto", display: "flex", gap: 7, alignItems: "center" }}>
             <Btn size="sm" variant="success" onClick={printDoc}>⬇ PDF</Btn>
             <Btn size="sm" onClick={() => router.push("/nouveau?id=" + doc.id)}>✏️ Modifier</Btn>
@@ -108,6 +123,9 @@ export default function DocumentPage() {
               ...(showPrix && doc.statut !== "PAYE" ? [{ icon: "💰", label: "Enregistrer un paiement", onClick: openPay }] : []),
               { icon: "📑", label: "Dupliquer", onClick: duplicate },
               ...(conv.length ? conv.map((c) => ({ icon: "🔄", label: "→ " + DOC_TYPES[c].label, onClick: () => convert(c) })) : []),
+              "—",
+              { icon: "💬", label: "Envoyer par WhatsApp", onClick: envoyerWa },
+              { icon: "✉️", label: "Envoyer par email", onClick: envoyerEmail },
               "—",
               ...STATUTS_PAR_TYPE[doc.type].filter((s) => s !== doc.statut).map((s) => ({ icon: "🏷", label: "Statut : " + STATUTS[s].label, onClick: () => changeStatut(s) })),
               "—",
