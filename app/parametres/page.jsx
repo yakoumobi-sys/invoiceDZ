@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { T, MODES_PAIEMENT } from "../../lib/constants";
 import { getUser, getProfil, saveProfil, cloudTablesOk, countLocalDocs, importLocalDocs } from "../../lib/db";
 import AppNav from "../../components/nav";
@@ -44,23 +44,6 @@ drop policy if exists "produits_own" on public.produits;
 create policy "produits_own" on public.produits
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);`;
 
-const resizeImage = (file, maxW = 420) =>
-  new Promise((res, rej) => {
-    const r = new FileReader();
-    r.onload = () => {
-      const img = new Image();
-      img.onload = () => {
-        const k = Math.min(1, maxW / img.width);
-        const c = document.createElement("canvas");
-        c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
-        c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
-        res(c.toDataURL("image/png"));
-      };
-      img.onerror = rej; img.src = r.result;
-    };
-    r.onerror = rej; r.readAsDataURL(file);
-  });
-
 export default function ParametresPage() {
   const [user, setUser] = useState(null);
   const [profil, setProfil] = useState(null);
@@ -68,7 +51,6 @@ export default function ParametresPage() {
   const [saving, setSaving] = useState(false);
   const [localCount, setLocalCount] = useState(0);
   const [cloudOk, setCloudOk] = useState(true);
-  const fileRef = useRef(null);
   const [msg, toast] = useToast();
 
   useEffect(() => {
@@ -82,15 +64,7 @@ export default function ParametresPage() {
     })();
   }, []);
 
-  const upE = (k, v) => setProfil({ ...profil, entreprise: { ...profil.entreprise, [k]: v } });
   const upP = (k, v) => setProfil({ ...profil, prefs: { ...profil.prefs, [k]: v } });
-
-  const handleLogo = async (e) => {
-    const f = e.target.files?.[0];
-    if (!f) return;
-    try { setProfil({ ...profil, logo: await resizeImage(f) }); }
-    catch { toast("Image illisible"); }
-  };
 
   const save = async () => {
     setSaving(true);
@@ -117,7 +91,6 @@ export default function ParametresPage() {
 
   if (loading || !profil) return <div style={{ minHeight: "100vh", background: T.bg, display: "flex", alignItems: "center", justifyContent: "center" }}><Spinner /></div>;
 
-  const ent = profil.entreprise;
   const prefs = profil.prefs || {};
 
   return (
@@ -126,41 +99,8 @@ export default function ParametresPage() {
       <div style={{ maxWidth: 860, margin: "0 auto", padding: "22px 18px 60px", display: "flex", flexDirection: "column", gap: 16 }}>
         <div>
           <h1 style={{ fontSize: 22, fontWeight: 900, letterSpacing: -0.5, margin: "0 0 4px" }}>Paramètres</h1>
-          <div style={{ color: T.inkLight, fontSize: 13.5 }}>Renseignez votre entreprise une fois : tout se pré-remplit ensuite.</div>
+          <div style={{ color: T.inkLight, fontSize: 13.5 }}>Valeurs par défaut de vos documents et gestion de votre compte.</div>
         </div>
-
-        {/* Entreprise */}
-        <Card>
-          <div style={{ fontSize: 11, fontWeight: 800, color: T.accent, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 15 }}>Votre entreprise</div>
-          <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap", marginBottom: 15 }}>
-            {profil.logo ? (
-              <span style={{ position: "relative", display: "inline-block" }}>
-                <img src={profil.logo} alt="logo" style={{ height: 56, maxWidth: 160, objectFit: "contain", borderRadius: 8, border: "1px solid " + T.border, background: "#fff", padding: 4 }} />
-                <button onClick={() => setProfil({ ...profil, logo: null })} aria-label="Retirer le logo"
-                  style={{ position: "absolute", top: -8, right: -8, background: T.danger, color: "#fff", border: "none", borderRadius: 10, width: 20, height: 20, fontSize: 12, cursor: "pointer" }}>×</button>
-              </span>
-            ) : (
-              <button onClick={() => fileRef.current?.click()}
-                style={{ width: 150, height: 58, border: "2px dashed " + T.border, borderRadius: 9, background: "none", cursor: "pointer", color: T.inkLight, fontSize: 13, fontFamily: "inherit" }}>
-                📎 Ajouter un logo
-              </button>
-            )}
-            <input ref={fileRef} type="file" accept="image/*" onChange={handleLogo} style={{ display: "none" }} />
-            <div style={{ fontSize: 12, color: T.inkLight, lineHeight: 1.7 }}>Apparaît en haut de vos documents.<br />PNG transparent recommandé.</div>
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 12 }}>
-            <div><Lbl>Nom</Lbl><Input value={ent.nom} onChange={(v) => upE("nom", v)} placeholder="Djimmy Prints" /></div>
-            <div><Lbl>Téléphone</Lbl><Input value={ent.telephone} onChange={(v) => upE("telephone", v)} /></div>
-            <div><Lbl>Email</Lbl><Input value={ent.email} onChange={(v) => upE("email", v)} /></div>
-            <div><Lbl>Adresse</Lbl><Input value={ent.adresse} onChange={(v) => upE("adresse", v)} /></div>
-            <div><Lbl>Ville</Lbl><Input value={ent.ville} onChange={(v) => upE("ville", v)} /></div>
-            <div><Lbl>Code</Lbl><Input value={ent.code} onChange={(v) => upE("code", v)} /></div>
-            <div><Lbl>Registre de commerce (RC)</Lbl><Input value={ent.rc} onChange={(v) => upE("rc", v)} /></div>
-            <div><Lbl>NIF</Lbl><Input value={ent.nif} onChange={(v) => upE("nif", v)} /></div>
-            <div><Lbl>Article d'imposition (AI)</Lbl><Input value={ent.ai} onChange={(v) => upE("ai", v)} /></div>
-            <div><Lbl>NIS</Lbl><Input value={ent.idFiscal} onChange={(v) => upE("idFiscal", v)} /></div>
-          </div>
-        </Card>
 
         {/* Valeurs par défaut */}
         <Card>

@@ -56,6 +56,20 @@ ok(prof.entreprise.nom === "Djimmy Prints" && prof.prefs.modePaiement === "ESPEC
 
 ok(db.countLocalDocs() === 1, "countLocalDocs");
 
+/* Compte : signature/cachet + case "afficher automatiquement" */
+await db.saveProfil(null, { entreprise: { nom: "Djimmy Prints" }, logo: null, signature: "data:sig", cachet: "data:cachet", prefs: { afficherSignature: true } });
+const profSig = await db.getProfil(null);
+ok(profSig.signature === "data:sig" && profSig.cachet === "data:cachet", "signature/cachet enregistrés et rechargés");
+ok(profSig.prefs.afficherSignature === true, "préférence afficherSignature enregistrée");
+
+const { newDoc } = await import("../lib/constants.js");
+const docAvecSig = newDoc("FACTURE", profSig);
+ok(docAvecSig.signature === "data:sig" && docAvecSig.cachet === "data:cachet", "newDoc inclut signature/cachet quand la case est cochée");
+
+const profSansCase = { ...profSig, prefs: { afficherSignature: false } };
+const docSansSig = newDoc("FACTURE", profSansCase);
+ok(docSansSig.signature === null && docSansSig.cachet === null, "newDoc n'inclut pas signature/cachet quand la case est décochée, même si uploadées");
+
 /* ── 2) DocPreview → HTML ── */
 const React = (await import("react")).default;
 const { renderToStaticMarkup } = await import("react-dom/server");
@@ -100,6 +114,16 @@ ok(html.includes("invoicedz.vercel.app"), "pied de page");
 /* BL : pas de prix, pas de timbre, pas de lettres */
 const bl = renderToStaticMarkup(React.createElement(DocPreview, { doc: { ...doc, type: "BON_LIVRAISON", paiements: [] } }));
 ok(!bl.includes("Net à payer") && !bl.includes("Droit de timbre"), "BL sans montants");
+
+/* Signature & cachet (Compte → afficher automatiquement sur mes documents) */
+const PIXEL = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4AWJiYGD4DwAAAP//cGajQwAAAAZJREFUAwABDgEC81VxbAAAAABJRU5ErkJggg==";
+const htmlSansSig = renderToStaticMarkup(React.createElement(DocPreview, { doc }));
+ok(!htmlSansSig.includes('alt="Signature"') && !htmlSansSig.includes('alt="Cachet"'), "sans signature/cachet : pas d'image, case vide");
+const htmlAvecSig = renderToStaticMarkup(React.createElement(DocPreview, { doc: { ...doc, signature: PIXEL, cachet: PIXEL } }));
+ok(htmlAvecSig.includes('alt="Signature"') && htmlAvecSig.includes(PIXEL), "avec signature : image affichée");
+ok(htmlAvecSig.includes('alt="Cachet"'), "avec cachet : image affichée");
+const htmlSigSeule = renderToStaticMarkup(React.createElement(DocPreview, { doc: { ...doc, signature: PIXEL, cachet: null } }));
+ok(htmlSigSeule.includes('alt="Signature"') && !htmlSigSeule.includes('alt="Cachet"'), "signature seule sans cachet");
 
 console.log(bad ? `\n${bad}/${n} FAILED` : `\n${n} tests passed`);
 process.exit(bad ? 1 : 0);

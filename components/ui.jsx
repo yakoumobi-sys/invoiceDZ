@@ -156,7 +156,7 @@ export function Modal({ open, onClose, title, children, width = 520 }) {
 }
 
 /* ── Menu déroulant (⋯) ── */
-export function Menu({ items, label = "⋯" }) {
+export function Menu({ items, label = "⋯", ariaLabel = "Actions" }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
   useEffect(() => {
@@ -166,7 +166,7 @@ export function Menu({ items, label = "⋯" }) {
   }, []);
   return (
     <span ref={ref} style={{ position: "relative", display: "inline-block" }}>
-      <button onClick={(e) => { e.stopPropagation(); setOpen(!open); }} aria-label="Actions"
+      <button onClick={(e) => { e.stopPropagation(); setOpen(!open); }} aria-label={ariaLabel}
         style={{ background: open ? "#ECF1EB" : "transparent", border: "1px solid " + (open ? T.border : "transparent"), borderRadius: 8, padding: "4px 10px", fontSize: 16, cursor: "pointer", color: T.inkMid, fontWeight: 700 }}>
         {label}
       </button>
