@@ -25,18 +25,27 @@ export async function GET(request) {
   }
 
   const rows = users
-    .map((u) => ({
-      id: u.id,
-      email: u.email,
-      entreprise: u.user_metadata?.entreprise?.nom || null,
-      created_at: u.created_at,
-      last_sign_in_at: u.last_sign_in_at || null,
-      confirmed: !!u.email_confirmed_at,
-      docs: statsByUser[u.id]?.count || 0,
-      ca: statsByUser[u.id]?.ca || 0,
-      lastDoc: statsByUser[u.id]?.lastDate || null,
-      admin: admins.has((u.email || "").toLowerCase()),
-    }))
+    .map((u) => {
+      const meta = u.user_metadata || {};
+      return {
+        id: u.id,
+        email: u.email,
+        prenom: meta.contact?.prenom || null,
+        nom: meta.contact?.nom || null,
+        telephone: meta.entreprise?.telephone || null,
+        entreprise: meta.entreprise?.nom || null,
+        secteur: meta.entreprise?.secteur || null,
+        effectif: meta.entreprise?.effectif || null,
+        adresse: meta.entreprise?.adresse || null,
+        created_at: u.created_at,
+        last_sign_in_at: u.last_sign_in_at || null,
+        confirmed: !!u.email_confirmed_at,
+        docs: statsByUser[u.id]?.count || 0,
+        ca: statsByUser[u.id]?.ca || 0,
+        lastDoc: statsByUser[u.id]?.lastDate || null,
+        admin: admins.has((u.email || "").toLowerCase()),
+      };
+    })
     .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
   return NextResponse.json({ users: rows });

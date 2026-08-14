@@ -6,6 +6,7 @@ import { calcLigne, calcTotaux, fmtDA, nextNumero } from "../../lib/facture.mjs"
 import { getUser, getProfil, listDocs, listClients, listProduits, saveDoc, saveClient, getDoc } from "../../lib/db";
 import { Btn, Input, Sel, Lbl, Card, Badge, Logo, Spinner, Toggle, Toast, useToast } from "../../components/ui";
 import DocPreview, { printDoc } from "../../components/DocPreview";
+import AuthForm from "../../components/AuthForm";
 
 const resizeImage = (file, maxW = 420) =>
   new Promise((res, rej) => {
@@ -247,6 +248,29 @@ function Step3({ doc, onBack, onSave, saving }) {
   );
 }
 
+/* ── Étape 2.5 : création de compte obligatoire pour les invités avant l'export ── */
+function SignupGate({ onSuccess, onBack }) {
+  return (
+    <div style={{ maxWidth: 780, margin: "0 auto", padding: "36px 20px" }}>
+      <div style={{ marginBottom: 24, textAlign: "center" }}>
+        <div style={{ fontSize: 11, fontWeight: 800, color: T.leafDark, letterSpacing: 2, textTransform: "uppercase", marginBottom: 10 }}>Dernière étape</div>
+        <h2 style={{ fontSize: 24, fontWeight: 900, letterSpacing: -0.5, margin: "0 0 8px" }}>Juste avant de finir,<br />créez un compte gratuit en 1 minute</h2>
+        <p style={{ color: T.inkLight, fontSize: 14, maxWidth: 460, margin: "0 auto" }}>
+          Votre document est prêt. Créez votre compte (ou connectez-vous) pour le récupérer, le télécharger et suivre vos paiements.
+        </p>
+      </div>
+      <div style={{ display: "flex", justifyContent: "center" }}>
+        <AuthForm defaultMode="signup" onSuccess={onSuccess} />
+      </div>
+      <div style={{ textAlign: "center", marginTop: 18 }}>
+        <button onClick={onBack} style={{ background: "none", border: "none", color: T.inkLight, cursor: "pointer", fontSize: 13, fontFamily: "inherit", textDecoration: "underline" }}>
+          ← Revenir modifier le document
+        </button>
+      </div>
+    </div>
+  );
+}
+
 /* ── Page ── */
 function NouveauContent() {
   const router = useRouter();
@@ -262,6 +286,7 @@ function NouveauContent() {
   const [profil, setProfil] = useState(null);
   const [addToCrm, setAddToCrm] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [showGate, setShowGate] = useState(false);
   const [msg, toast] = useToast();
 
   useEffect(() => {
@@ -283,6 +308,18 @@ function NouveauContent() {
     d.numero = nextNumero(type, docs);
     setDoc(d);
     setStep(2);
+  };
+
+  /* Invité : compte obligatoire juste avant l'aperçu/export. Connecté : passage direct. */
+  const handleStep2Next = () => {
+    if (!user) setShowGate(true);
+    else setStep(3);
+  };
+
+  const handleGateSuccess = (newUser) => {
+    setUser(newUser);
+    setShowGate(false);
+    setStep(3);
   };
 
   const handleSave = async () => {
@@ -326,9 +363,15 @@ function NouveauContent() {
         </div>
       </div>
 
-      {step === 1 && <Step1 onChoix={handleChoix} />}
-      {step === 2 && doc && <Step2 doc={doc} onChange={setDoc} onNext={() => setStep(3)} onBack={() => setStep(1)} clients={clients} produits={produits} addToCrm={addToCrm} setAddToCrm={setAddToCrm} editMode={!!editId} />}
-      {step === 3 && doc && <Step3 doc={doc} onBack={() => setStep(2)} onSave={handleSave} saving={saving} />}
+      {showGate ? (
+        <SignupGate onSuccess={handleGateSuccess} onBack={() => setShowGate(false)} />
+      ) : (
+        <>
+          {step === 1 && <Step1 onChoix={handleChoix} />}
+          {step === 2 && doc && <Step2 doc={doc} onChange={setDoc} onNext={handleStep2Next} onBack={() => setStep(1)} clients={clients} produits={produits} addToCrm={addToCrm} setAddToCrm={setAddToCrm} editMode={!!editId} />}
+          {step === 3 && doc && <Step3 doc={doc} onBack={() => setStep(2)} onSave={handleSave} saving={saving} />}
+        </>
+      )}
       <Toast msg={msg} />
     </>
   );
