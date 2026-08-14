@@ -153,7 +153,14 @@ export default function DocPreview({ doc }) {
         </div>
         <div style={{ textAlign: "center", flexShrink: 0 }}>
           <div style={{ fontSize: 9.5, letterSpacing: 1.4, color: "#7B8880", textTransform: "uppercase", fontWeight: 700 }}>Cachet et signature</div>
-          <div style={{ width: 170, height: 74, border: "1.5px dashed #C9D3C9", borderRadius: 9, marginTop: 7 }} />
+          {(doc.cachet || doc.signature) ? (
+            <div style={{ width: 170, height: 74, marginTop: 7, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+              {doc.cachet && <img src={doc.cachet} alt="Cachet" style={{ maxHeight: 70, maxWidth: 90, objectFit: "contain" }} />}
+              {doc.signature && <img src={doc.signature} alt="Signature" style={{ maxHeight: 50, maxWidth: 90, objectFit: "contain" }} />}
+            </div>
+          ) : (
+            <div style={{ width: 170, height: 74, border: "1.5px dashed #C9D3C9", borderRadius: 9, marginTop: 7 }} />
+          )}
         </div>
       </div>
 

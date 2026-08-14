@@ -293,18 +293,19 @@ function NouveauContent() {
     (async () => {
       const u = await getUser();
       setUser(u);
-      const [p, ds, cs, ps] = await Promise.all([getProfil(u), listDocs(u), listClients(u), listProduits(u)]);
+      const [p, ds, cs, ps] = await Promise.all([getProfil(u), listDocs(u), listClients(u), listProduits(u)])
+        .catch(() => [null, [], [], []]);
       setProfil(p); setDocs(ds); setClients(cs); setProduits(ps);
       if (editId) {
         const d = await getDoc(u, editId);
-        if (d) { setDoc({ ...newDoc(d.type, p.entreprise, p.logo, p.prefs), ...d }); setStep(2); }
+        if (d) { setDoc({ ...newDoc(d.type, p || {}), ...d }); setStep(2); }
         else { toast("Document introuvable"); setStep(1); }
       }
     })();
   }, [editId]);
 
   const handleChoix = (type) => {
-    const d = newDoc(type, profil?.entreprise, profil?.logo, profil?.prefs);
+    const d = newDoc(type, profil || {});
     d.numero = nextNumero(type, docs);
     setDoc(d);
     setStep(2);
