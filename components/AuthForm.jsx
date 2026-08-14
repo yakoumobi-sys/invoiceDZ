@@ -74,6 +74,7 @@ export default function AuthForm({ defaultMode = "login", onSuccess, title, subt
           email: form.email.trim(),
           password: form.password,
           options: {
+            emailRedirectTo: typeof window !== "undefined" ? window.location.origin + "/auth" : undefined,
             data: {
               contact: { prenom: form.prenom.trim(), nom: form.nom.trim() },
               entreprise: {
