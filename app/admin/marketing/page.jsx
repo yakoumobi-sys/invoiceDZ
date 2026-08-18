@@ -13,7 +13,7 @@ const CHANNELS = [
 ];
 
 const CONFIG_HINT = {
-  email: "Ajoutez BREVO_API_KEY en variable d'environnement (Vercel → Settings → Environment Variables) pour activer l'envoi d'emails.",
+  email: "Ajoutez BREVO_API_KEY et BREVO_SENDER_EMAIL en variable d'environnement (Vercel → Settings → Environment Variables) pour activer l'envoi d'emails.",
   sms: "Ajoutez BREVO_API_KEY pour activer l'envoi de SMS.",
   whatsapp: "Ajoutez TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN et TWILIO_WHATSAPP_FROM pour activer WhatsApp.",
 };
@@ -178,8 +178,11 @@ function AdminMarketingContent() {
 
             {result?.error && <div style={{ background: "#FDEEEC", border: "1px solid #F5C9C4", borderRadius: 9, padding: "10px 13px", marginBottom: 12, fontSize: 13, color: T.danger }}>{result.error}</div>}
             {result && !result.error && (
-              <div style={{ background: T.leafBg, border: "1px solid #D6ECC8", borderRadius: 9, padding: "10px 13px", marginBottom: 12, fontSize: 13, color: T.leafDark }}>
+              <div style={{ background: result.failed > 0 ? "#FDEEEC" : T.leafBg, border: "1px solid " + (result.failed > 0 ? "#F5C9C4" : "#D6ECC8"), borderRadius: 9, padding: "10px 13px", marginBottom: 12, fontSize: 13, color: result.failed > 0 ? T.danger : T.leafDark }}>
                 {result.sent} envoyé(s){result.skippedNotConfigured > 0 ? `, ${result.skippedNotConfigured} non envoyé(s) (fournisseur non configuré)` : ""}{result.skippedNoContact > 0 ? `, ${result.skippedNoContact} sans coordonnée` : ""}{result.failed > 0 ? `, ${result.failed} échec(s)` : ""}.
+                {result.errors?.length > 0 && (
+                  <div style={{ marginTop: 6, fontSize: 12, opacity: 0.85 }}>{result.errors.join(" · ")}</div>
+                )}
               </div>
             )}
 
